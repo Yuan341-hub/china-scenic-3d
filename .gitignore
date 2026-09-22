@@ -1,0 +1,7 @@
+node_modules/
+models/*.glb
+models/*.gltf
+models/*.bin
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中国景点3D展示</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+            background: #0a0a1a;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* ========== 通用视图切换 ========== */
+        .view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transition: opacity 0.5s ease; }
+        .view-hidden { opacity: 0; pointer-events: none; }
+        .view-visible { opacity: 1; pointer-events: auto; }
+
+        /* ========== 地图视图 ========== */
+        #map-view {
+            display: flex;
+            flex-direction: column;
+            background: radial-gradient(ellipse at center bottom, #0d1b2a 0%, #060a14 100%);
+        }
+        #map-topbar {
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(76, 201, 240, 0.1);
+            z-index: 10;
+            flex-shrink: 0;
+        }
+        #map-topbar h1 {
+            font-size: 22px;
+            font-weight: 500;
+            color: #4cc9f0;
+            letter-spacing: 4px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        #map-topbar h1::before,
+        #map-topbar h1::after {
+            content: '';
+            width: 30px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #4cc9f0);
+        }
+        #map-topbar h1::after {
+            background: linear-gradient(90deg, #4cc9f0, transparent);
+        }
+        #map-container {
+            flex: 1;
+            position: relative;
+        }
+        #map-chart {
+            width: 100%;
+            height: 100%;
+        }
+        /* 地图底部操作提示 */
+        #map-footer {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-top: 1px solid rgba(76, 201, 240, 0.08);
+            font-size: 12px;
+            color: #4a5568;
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+
+        /* ========== 3D视图 ========== */
+        #scene-view {
+            display: flex;
+        }
+        /* 左侧面板（返回按钮） */
+        #left-panel {
+            width: 280px;
+            background: linear-gradient(180deg, #0d1b2a 0%, #1b2838 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid rgba(76, 201, 240, 0.15);
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+        #left-panel .panel-header {
+            padding: 28px 24px 20px;
+            border-bottom: 1px solid rgba(76, 201, 240, 0.1);
+        }
+        #left-panel .panel-header h2 {
+            font-size: 20px;
+            font-weight: 500;
+            color: #4cc9f0;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #left-panel .panel-header h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, #4cc9f0, #7b61ff);
+            border-radius: 2px;
+        }
+        #left-panel .panel-body {
+            padding: 24px;
+            flex: 1;
+        }
+        #back-btn {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid rgba(76, 201, 240, 0.25);
+            background: rgba(22, 33, 62, 0.8);
+            color: #4cc9f0;
+            font-size: 14px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+        #back-btn:hover {
+            border-color: #4cc9f0;
+            background: rgba(76, 201, 240, 0.1);
+            box-shadow: 0 0 20px rgba(76, 201, 240, 0.15);
+        }
+        #left-panel .panel-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(76, 201, 240, 0.08);
+            font-size: 11px;
+            color: #4a5568;
+            line-height: 1.6;
+        }
+        /* 中间画布 */
+        #canvas-container {
+            flex: 1;
+            background: radial-gradient(ellipse at center, #12182b 0%, #0a0a1a 70%);
+            position: relative;
+        }
+        #canvas-hint {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(13, 27, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(76, 201, 240, 0.15);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 12px;
+            color: #6b7b8d;
+            z-index: 5;
+            pointer-events: none;
+        }
+        #canvas-hint span { color: #4cc9f0; font-weight: 500; }
+        /* 模型加载中提示 */
+        #model-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            z-index: 6;
+            pointer-events: none;
+        }
+        #model-loading .mini-spinner {
+            width: 32px; height: 32px;
+            border: 3px solid rgba(76, 201, 240, 0.15);
+            border-top-color: #4cc9f0;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        #model-loading .mini-text { color: #4cc9f0; font-size: 13px; letter-spacing: 2px; }
+        /* 右侧信息面板 */
+        #right-panel {
+            width: 320px;
+            background: linear-gradient(180deg, #0d1b2a 0%, #1b2838 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid rgba(76, 201, 240, 0.15);
+            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+        #right-panel .panel-header {
+            padding: 28px 24px 20px;
+            border-bottom: 1px solid rgba(76, 201, 240, 0.1);
+        }
+        #right-panel .panel-header h2 {
+            font-size: 20px;
+            font-weight: 500;
+            color: #4cc9f0;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #right-panel .panel-header h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, #7b61ff, #4cc9f0);
+            border-radius: 2px;
+        }
+        #right-panel .panel-body {
+            padding: 24px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        /* 信息内容样式 */
+        #info-content { line-height: 1.8; color: #b0bec5; font-size: 14px; }
+        #info-content .spot-name { font-size: 22px; font-weight: 700; color: #ffffff; margin-bottom: 8px; letter-spacing: 1px; }
+        #info-content .spot-province {
+            display: inline-block;
+            background: rgba(76, 201, 240, 0.12);
+            border: 1px solid rgba(76, 201, 240, 0.25);
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 12px;
+            color: #4cc9f0;
+            margin-bottom: 16px;
+        }
+        #info-content .spot-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(76, 201, 240, 0.2), transparent);
+            margin: 16px 0;
+        }
+        #info-content .spot-desc { font-size: 14px; line-height: 2; color: #90a4ae; }
+        #info-content .pick-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, rgba(123, 97, 255, 0.2), rgba(76, 201, 240, 0.2));
+            border: 1px solid rgba(123, 97, 255, 0.3);
+            border-radius: 4px;
+            padding: 2px 10px;
+            font-size: 11px;
+            color: #b388ff;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+        }
+        #info-content .model-missing {
+            margin-top: 16px;
+            padding: 12px 14px;
+            border: 1px dashed rgba(255, 183, 77, 0.4);
+            border-radius: 8px;
+            background: rgba(255, 183, 77, 0.06);
+            color: #ffb74d;
+            font-size: 12px;
+            line-height: 1.8;
+        }
+        #info-content .model-missing code {
+            background: rgba(255, 183, 77, 0.12);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        #info-content .placeholder-text {
+            color: #4a5568;
+            font-size: 13px;
+            text-align: center;
+            padding-top: 60px;
+            line-height: 2;
+        }
+        #info-content .placeholder-text .icon { font-size: 40px; display: block; margin-bottom: 12px; opacity: 0.3; }
+        /* 自定义滚动条 */
+        #right-panel .panel-body::-webkit-scrollbar { width: 5px; }
+        #right-panel .panel-body::-webkit-scrollbar-track { background: transparent; }
+        #right-panel .panel-body::-webkit-scrollbar-thumb { background: rgba(76, 201, 240, 0.2); border-radius: 3px; }
+        #right-panel .panel-body::-webkit-scrollbar-thumb:hover { background: rgba(76, 201, 240, 0.4); }
+
+        /* ========== 加载遮罩 ========== */
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #0a0a1a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+        #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+        .loading-spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(76, 201, 240, 0.15);
+            border-top-color: #4cc9f0;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: #4cc9f0; margin-top: 16px; font-size: 14px; letter-spacing: 2px; }
+
+        /* ========== 移动端适配 ========== */
+        #mobile-bar { display: none; }
+        @media (max-width: 900px) {
+            #scene-view { flex-direction: column; }
+            #left-panel, #right-panel {
+                width: 100%;
+                border: none;
+                box-shadow: none;
+            }
+            #left-panel {
+                order: 1;
+                flex-shrink: 0;
+            }
+            #left-panel .panel-header { display: none; }
+            #left-panel .panel-body { padding: 12px 16px; display: flex; gap: 12px; align-items: center; }
+            #left-panel .panel-footer { display: none; }
+            #left-info { padding: 0 !important; display: flex !important; align-items: center; gap: 10px; flex: 1; }
+            #left-info #left-spot-name { font-size: 16px !important; margin-bottom: 0 !important; }
+            #back-btn { width: auto; padding: 8px 14px; font-size: 13px; }
+            #canvas-container { order: 2; min-height: 40vh; }
+            #right-panel { order: 3; flex: 1; min-height: 0; border-top: 1px solid rgba(76, 201, 240, 0.15); }
+            #right-panel .panel-header { display: none; }
+            #right-panel .panel-body { padding: 16px; }
+            #canvas-hint { font-size: 11px; padding: 8px 12px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载遮罩 -->
+    <div id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">加载地图数据...</div>
+    </div>
+
+    <!-- ========== 地图视图 ========== -->
+    <div id="map-view" class="view view-hidden">
+        <div id="map-topbar">
+            <h1>中国景点 3D 探索</h1>
+        </div>
+        <div id="map-container">
+            <div id="map-chart"></div>
+        </div>
+        <div id="map-footer">点击地图上的景点标记，进入 3D 模型浏览</div>
+    </div>
+
+    <!-- ========== 3D视图 ========== -->
+    <div id="scene-view" class="view view-hidden">
+        <div id="left-panel">
+            <div class="panel-header">
+                <h2>景点选择</h2>
+            </div>
+            <div class="panel-body">
+                <button id="back-btn">&#8592; 返回地图</button>
+            </div>
+            <div id="left-info" style="padding: 0 24px 24px; display:none;">
+                <div style="font-size:22px; font-weight:700; color:#fff; margin-bottom:6px;" id="left-spot-name"></div>
+                <div style="display:inline-block; background:rgba(76,201,240,0.12); border:1px solid rgba(76,201,240,0.25); border-radius:20px; padding:4px 14px; font-size:12px; color:#4cc9f0;" id="left-spot-province"></div>
+            </div>
+            <div class="panel-footer">
+                支持鼠标左键旋转 / 右键平移 / 滚轮缩放<br>
+                点击模型可查看详细信息
+            </div>
+        </div>
+        <div id="canvas-container">
+            <div id="canvas-hint">
+                <span>LMB</span> 旋转 &nbsp;&nbsp; <span>RMB</span> 平移 &nbsp;&nbsp; <span>Scroll</span> 缩放 &nbsp;&nbsp; <span>Click</span> 拾取
+            </div>
+            <div id="model-loading">
+                <div class="mini-spinner"></div>
+                <div class="mini-text">模型加载中...</div>
+            </div>
+        </div>
+        <div id="right-panel">
+            <div class="panel-header">
+                <h2>景点信息</h2>
+            </div>
+            <div class="panel-body">
+                <div id="info-content">
+                    <div class="placeholder-text">
+                        <span class="icon">&#9670;</span>
+                        从地图选择一个景点<br>开始探索之旅
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    // Three.js 插件（GLTFLoader / OrbitControls）：主 CDN 失败时自动回退备用 CDN
+    (function loadThreePlugins() {
+        var sources = [
+            ['https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
+             'https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js'],
+            ['https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js',
+             'https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js']
+        ];
+        var chain = Promise.resolve();
+        sources.forEach(function(pair) {
+            chain = chain.then(function() {
+                return new Promise(function(resolve) {
+                    var tried = 0;
+                    function attempt() {
+                        var s = document.createElement('script');
+                        s.src = pair[tried];
+                        s.onload = function() { resolve(); };
+                        s.onerror = function() {
+                            tried++;
+                            if (tried < pair.length) { attempt(); }
+                            else { console.error('插件加载失败:', pair[0]); resolve(); }
+                        };
+                        document.head.appendChild(s);
+                    }
+                    attempt();
+                });
+            });
+        });
+        chain.then(function() { window.__threePluginsReady = true; });
+    })();
+    </script>
+
+    <script>
+    // ==================== 景点数据 ====================
+    const scenicData = {
+        "北京": [
+            { name: "故宫", province: "北京", description: "北京故宫是中国明清两代的皇家宫殿，旧称紫禁城，位于北京中轴线的中心。是中国古代宫廷建筑之精华，也是世界上现存规模最大、保存最为完整的木质结构古建筑之一。", model: "models/gugong.glb", coord: [116.40, 39.90] },
+            { name: "长城", province: "北京", description: "长城是中国古代的军事防御工程，西起嘉峪关，东至鸭绿江。横跨中国北方的崇山峻岭，绵延万里，是世界七大奇迹之一。", model: "models/greatwall.glb", coord: [116.23, 40.31] }
+        ],
+        "西安": [
+            { name: "兵马俑", province: "陕西西安", description: "秦始皇兵马俑是世界考古史上最伟大的发现之一，被誉为世界第八大奇迹。数千件栩栩如生的陶俑排列成阵，展现了秦朝的强大军事力量。", model: "models/bingmayong.glb", coord: [109.91, 34.38] },
+            { name: "大雁塔", province: "陕西西安", description: "大雁塔位于西安市南的大慈恩寺内，是唐代高僧玄奘为保存佛经而建造的。塔高64米，共七层，是中国佛教建筑艺术的杰作。", model: "models/dayanta.glb", coord: [108.95, 34.22] }
+        ],
+        "杭州": [
+            { name: "西湖", province: "浙江杭州", description: "西湖是中国著名的旅游景点，以其秀丽的湖光山色和众多的名胜古迹闻名中外。湖中有三潭印月、断桥残雪等著名景观。", model: "models/xihu.glb", coord: [120.15, 30.25] },
+            { name: "灵隐寺", province: "浙江杭州", description: "灵隐寺是中国佛教禅宗十大古刹之一，位于杭州西湖西北面。始建于东晋咸和元年，距今已有近一千七百年的历史。", model: "models/lingyinsi.glb", coord: [120.10, 30.24] }
+        ],
+        "苏州": [
+            { name: "拙政园", province: "江苏苏州", description: "拙政园是中国古典园林的代表作品，与北京颐和园、承德避暑山庄、苏州留园一起被誉为中国四大名园。以水为中心，山水萦绕，厅榭精美。", model: "models/zhuozhengyuan.glb", coord: [120.63, 31.32] }
+        ],
+        "成都": [
+            { name: "都江堰", province: "四川成都", description: "都江堰是世界文化遗产，是全世界迄今为止，年代最久、唯一留存、以无坝引水为特征的宏大水利工程。由战国时期秦国蜀郡太守李冰父子修建。", model: "models/dujiangyan.glb", coord: [103.62, 31.00] },
+            { name: "武侯祠", province: "四川成都", description: "武侯祠是纪念中国三国时期蜀汉丞相诸葛亮的祠堂。它是全国唯一的君臣合祀祠庙，也是三国遗迹源头。", model: "models/wuhouci.glb", coord: [104.03, 30.64] }
+        ]
+    };
+
+    // 扁平化景点列表，方便查找
+    const allSpots = Object.values(scenicData).flat();
+
+    // ==================== 视图切换 ====================
+    let currentView = 'map'; // 'map' | 'scene'
+
+    function switchView(target) {
+        const mapView = document.getElementById('map-view');
+        const sceneView = document.getElementById('scene-view');
+
+        if (target === 'scene') {
+            mapView.classList.replace('view-visible', 'view-hidden');
+            sceneView.classList.replace('view-hidden', 'view-visible');
+            currentView = 'scene';
+            // 触发Three.js渲染器resize
+            setTimeout(onWindowResize, 100);
+        } else {
+            sceneView.classList.replace('view-visible', 'view-hidden');
+            mapView.classList.replace('view-hidden', 'view-visible');
+            currentView = 'map';
+            // 触发ECharts resize
+            if (mapChart) mapChart.resize();
+        }
+    }
+
+    // ==================== ECharts 中国地图 ====================
+    let mapChart = null;
+
+    function initMap() {
+        mapChart = echarts.init(document.getElementById('map-chart'), null, { renderer: 'canvas' });
+
+        // 从CDN获取中国GeoJSON
+        fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
+            .then(res => res.json())
+            .then(chinaJson => {
+                echarts.registerMap('china', chinaJson);
+                renderMap();
+                // 隐藏加载遮罩
+                document.getElementById('loading-overlay').classList.add('hidden');
+                document.getElementById('map-view').classList.replace('view-hidden', 'view-visible');
+            })
+            .catch(err => {
+                console.error('地图数据加载失败:', err);
+                document.querySelector('.loading-text').textContent = '地图数据加载失败，请检查网络后刷新重试';
+            });
+    }
+
+    function renderMap() {
+        const option = {
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'item',
+                backgroundColor: 'rgba(13, 27, 42, 0.95)',
+                borderColor: 'rgba(76, 201, 240, 0.3)',
+                borderWidth: 1,
+                padding: [12, 16],
+                textStyle: { color: '#e0e0e0', fontSize: 13, fontFamily: 'Noto Sans SC, Microsoft YaHei, sans-serif' },
+                formatter: function(params) {
+                    if (params.seriesType === 'effectScatter') {
+                        return '<div style="font-size:16px;font-weight:700;color:#4cc9f0;margin-bottom:6px;">' + params.name + '</div>'
+                             + '<div style="color:#90a4ae;line-height:1.6;">' + params.data.description + '</div>';
+                    }
+                    return params.name;
+                }
+            },
+            geo: {
+                map: 'china',
+                roam: true,
+                zoom: 1.2,
+                center: [104.5, 36],
+                label: { show: false },
+                itemStyle: {
+                    areaColor: '#16213e',
+                    borderColor: 'rgba(76, 201, 240, 0.25)',
+                    borderWidth: 0.8
+                },
+                emphasis: {
+                    itemStyle: {
+                        areaColor: '#1a3a5c',
+                        borderColor: '#4cc9f0',
+                        borderWidth: 1.5
+                    },
+                    label: {
+                        show: true,
+                        color: '#4cc9f0',
+                        fontSize: 13,
+                        fontWeight: 500
+                    }
+                },
+                select: {
+                    itemStyle: { areaColor: '#1a3a5c' }
+                }
+            },
+            series: [
+                // 景点涟漪散点
+                {
+                    name: '景点',
+                    type: 'effectScatter',
+                    coordinateSystem: 'geo',
+                    zlevel: 2,
+                    rippleEffect: {
+                        brushType: 'stroke',
+                        scale: 4,
+                        period: 4
+                    },
+                    symbol: 'circle',
+                    symbolSize: 10,
+                    itemStyle: {
+                        color: '#4cc9f0',
+                        shadowBlur: 12,
+                        shadowColor: 'rgba(76, 201, 240, 0.6)'
+                    },
+                    label: {
+                        show: true,
+                        position: 'right',
+                        formatter: '{b}',
+                        color: '#b0bec5',
+                        fontSize: 12,
+                        textBorderColor: '#0a0a1a',
+                        textBorderWidth: 2
+                    },
+                    data: allSpots.map(spot => ({
+                        name: spot.name,
+                        value: spot.coord,
+                        description: spot.description.substring(0, 50) + '...'
+                    }))
+                },
+                // 景点普通散点（用于点击）
+                {
+                    name: '景点点击',
+                    type: 'scatter',
+                    coordinateSystem: 'geo',
+                    zlevel: 3,
+                    symbol: 'circle',
+                    symbolSize: 14,
+                    itemStyle: { color: 'transparent', borderColor: 'transparent' },
+                    data: allSpots.map(spot => ({
+                        name: spot.name,
+                        value: spot.coord
+                    }))
+                }
+            ]
+        };
+
+        mapChart.setOption(option);
+
+        // 点击景点标记 -> 切换到3D视图
+        mapChart.on('click', function(params) {
+            if (params.seriesType === 'effectScatter' || params.seriesType === 'scatter') {
+                const spot = allSpots.find(s => s.name === params.name);
+                if (spot) enterScene(spot);
+            }
+        });
+
+        // 窗口尺寸变化时自适应（地图视图）
+        window.addEventListener('resize', function() {
+            if (currentView === 'map' && mapChart) mapChart.resize();
+        });
+    }
+
+    // ==================== Three.js 3D场景 ====================
+    let scene, camera, renderer, gltfLoader, controls;
+    let currentModel = null;
+    let currentSpotInfo = null;
+    let modelMissing = false;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    // 用于区分「点击」与「拖拽旋转」
+    let pointerDownPos = { x: 0, y: 0 };
+
+    function initScene() {
+        const container = document.getElementById('canvas-container');
+
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f1525);
+        scene.fog = new THREE.Fog(0x0f1525, 10, 40);
+
+        camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(0, 1.2, 4);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 1;
+        controls.maxDistance = 30;
+
+        gltfLoader = new THREE.GLTFLoader();
+
+        // 灯光
+        scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+        const dl = new THREE.DirectionalLight(0xffffff, 0.85);
+        dl.position.set(5, 6, 5);
+        scene.add(dl);
+        const bl = new THREE.DirectionalLight(0x88aaff, 0.35);
+        bl.position.set(-3, -2, -3);
+        scene.add(bl);
+
+        // 地面网格，增强空间感
+        const grid = new THREE.GridHelper(20, 40, 0x1c3a5e, 0x14263e);
+        grid.position.y = -1.05;
+        scene.add(grid);
+
+        animate();
+        window.addEventListener('resize', onWindowResize);
+        renderer.domElement.addEventListener('pointerdown', function(e) {
+            pointerDownPos.x = e.clientX;
+            pointerDownPos.y = e.clientY;
+        });
+        renderer.domElement.addEventListener('click', onCanvasClick);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (currentView === 'scene') {
+            controls.update();
+            // 占位模型缓慢自转
+            if (currentModel && currentModel.userData.isPlaceholder) {
+                currentModel.rotation.y += 0.005;
+            }
+            renderer.render(scene, camera);
+        }
+    }
+
+    function onWindowResize() {
+        if (currentView !== 'scene') return;
+        const container = document.getElementById('canvas-container');
+        if (!container) return;
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    // 进入3D场景
+    function enterScene(spot) {
+        if (!scene) {
+            alert('3D 组件加载失败，请检查网络后刷新页面重试。');
+            return;
+        }
+        switchView('scene');
+
+        // 更新左侧面板
+        document.getElementById('left-info').style.display = 'block';
+        document.getElementById('left-spot-name').textContent = spot.name;
+        document.getElementById('left-spot-province').textContent = spot.province;
+
+        // 更新右侧信息
+        renderInfo(spot, null);
+        loadModel(spot);
+    }
+
+    // 渲染右侧信息面板
+    function renderInfo(spot, extraTag) {
+        let html =
+            '<div class="spot-name">' + spot.name + '</div>' +
+            '<div class="spot-province">' + spot.province + '</div>';
+        if (extraTag) html += extraTag;
+        html +=
+            '<div class="spot-divider"></div>' +
+            '<div class="spot-desc">' + spot.description + '</div>';
+        if (modelMissing) {
+            html +=
+                '<div class="model-missing">3D 模型文件未找到，当前显示占位模型。<br>' +
+                '请将模型文件放到 <code>' + spot.model + '</code> 即可显示真实模型。</div>';
+        }
+        document.getElementById('info-content').innerHTML = html;
+    }
+
+    // 返回地图
+    document.getElementById('back-btn').addEventListener('click', function() {
+        switchView('map');
+        document.getElementById('left-info').style.display = 'none';
+        document.getElementById('info-content').innerHTML =
+            '<div class="placeholder-text"><span class="icon">&#9670;</span>从地图选择一个景点<br>开始探索之旅</div>';
+    });
+
+    // 射线拾取（带拖拽位移判断，避免旋转后误触发）
+    function onCanvasClick(e) {
+        if (!currentModel || currentView !== 'scene') return;
+        const dx = e.clientX - pointerDownPos.x;
+        const dy = e.clientY - pointerDownPos.y;
+        if (Math.sqrt(dx * dx + dy * dy) > 6) return; // 视为拖拽，不拾取
+
+        const container = document.getElementById('canvas-container');
+        const rect = container.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(currentModel, true);
+        if (intersects.length > 0 && currentSpotInfo) {
+            renderInfo(currentSpotInfo, '<div class="pick-tag">&#10003; 拾取命中</div>');
+        }
+    }
+
+    // 递归释放内存
+    function disposeModel(obj) {
+        if (!obj) return;
+        obj.traverse(function(child) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(function(m) { m.dispose(); });
+                } else {
+                    child.material.dispose();
+                }
+            }
+        });
+    }
+
+    // 将模型缩放到统一大小、居中，并据包围球调整相机距离
+    function frameModel(model) {
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const scale = 2 / maxDim;
+        model.scale.setScalar(scale);
+        model.position.sub(center.multiplyScalar(scale));
+
+        // 根据视野角计算能完整容纳模型的相机距离
+        const radius = 1.2; // 缩放后模型包围球半径约为 1，留 20% 余量
+        const fov = camera.fov * Math.PI / 180;
+        const dist = radius / Math.sin(fov / 2);
+        camera.position.set(0, dist * 0.35, dist);
+        controls.target.set(0, 0, 0);
+        controls.update();
+    }
+
+    // 模型缺失时的占位模型：发光塔形线框
+    function buildPlaceholder() {
+        const group = new THREE.Group();
+        group.userData.isPlaceholder = true;
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0x4cc9f0, emissive: 0x1a4a6a,
+            metalness: 0.3, roughness: 0.4,
+            transparent: true, opacity: 0.85
+        });
+        const wire = new THREE.LineBasicMaterial({ color: 0x7b61ff, transparent: true, opacity: 0.5 });
+
+        const tiers = [
+            { r: 1.0, h: 0.5, y: -0.75 },
+            { r: 0.7, h: 0.45, y: -0.28 },
+            { r: 0.45, h: 0.4, y: 0.14 }
+        ];
+        tiers.forEach(function(t) {
+            const geo = new THREE.CylinderGeometry(t.r * 0.8, t.r, t.h, 8);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.y = t.y;
+            group.add(mesh);
+            const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), wire);
+            edges.position.y = t.y;
+            group.add(edges);
+        });
+        const top = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 8), mat);
+        top.position.y = 0.6;
+        group.add(top);
+
+        const base = new THREE.Mesh(
+            new THREE.CylinderGeometry(1.25, 1.25, 0.06, 32),
+            new THREE.MeshStandardMaterial({ color: 0x16213e, emissive: 0x0d1b2a })
+        );
+        base.position.y = -1.02;
+        group.add(base);
+        return group;
+    }
+
+    // 加载模型
+    function loadModel(spot) {
+        console.log('加载模型:', spot.model, spot.name);
+        currentSpotInfo = spot;
+        modelMissing = false;
+
+        if (currentModel) {
+            scene.remove(currentModel);
+            disposeModel(currentModel);
+            currentModel = null;
+        }
+
+        const loadingEl = document.getElementById('model-loading');
+        loadingEl.style.display = 'flex';
+
+        gltfLoader.load(
+            spot.model,
+            function(gltf) {
+                loadingEl.style.display = 'none';
+                const model = gltf.scene;
+                scene.add(model);
+                currentModel = model;
+                frameModel(model);
+                console.log('模型加载完成:', spot.name);
+            },
+            function(xhr) {
+                if (xhr.total) {
+                    console.log('加载进度:', Math.round(xhr.loaded / xhr.total * 100) + '%');
+                }
+            },
+            function(err) {
+                loadingEl.style.display = 'none';
+                console.warn('模型加载失败，使用占位模型:', spot.model, err);
+                modelMissing = true;
+                currentModel = buildPlaceholder();
+                scene.add(currentModel);
+                frameModel(currentModel);
+                // 在信息面板提示模型缺失
+                renderInfo(spot, null);
+            }
+        );
+    }
+
+    // ==================== 初始化 ====================
+    window.addEventListener('load', function() {
+        // 地图初始化独立容错，3D 场景等插件脚本就绪后再初始化
+        try { initMap(); } catch (e) { console.error('地图初始化失败:', e); }
+        (function waitPlugins(retry) {
+            if (window.__threePluginsReady) {
+                try { initScene(); } catch (e) { console.error('3D场景初始化失败:', e); }
+            } else if (retry > 0) {
+                setTimeout(function() { waitPlugins(retry - 1); }, 200);
+            } else {
+                console.error('Three.js 插件加载超时，3D 功能不可用');
+            }
+        })(50); // 最多等待 10 秒
+    });
+    </script>
+</body>
+</html>
