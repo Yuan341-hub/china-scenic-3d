@@ -40,7 +40,7 @@ npm run dev
 | 都江堰 | `models/dujiangyan.glb` |
 | 武侯祠 | `models/wuhouci.glb` |
 
-模型文件较大，已在 `.gitignore` 中忽略，不入库。
+模型文件较大，已在 `.gitignore` 中忽略，不入库。模型来源与许可署名见 [ATTRIBUTION.md](ATTRIBUTION.md)。
 
 ## 目录结构
 
