@@ -268,6 +268,16 @@
             border-radius: 4px;
             font-size: 11px;
         }
+        #info-content .demo-tag {
+            margin-top: 14px;
+            padding: 10px 12px;
+            background: rgba(76, 201, 240, 0.08);
+            border: 1px solid rgba(76, 201, 240, 0.25);
+            border-radius: 8px;
+            color: #4cc9f0;
+            font-size: 12px;
+            line-height: 1.7;
+        }
         #info-content .placeholder-text {
             color: #4a5568;
             font-size: 13px;
@@ -440,15 +450,15 @@
             { name: "大雁塔", province: "陕西西安", description: "大雁塔位于西安市南的大慈恩寺内，是唐代高僧玄奘为保存佛经而建造的。塔高64米，共七层，是中国佛教建筑艺术的杰作。", model: "models/dayanta.glb", coord: [108.95, 34.22] }
         ],
         "杭州": [
-            { name: "西湖", province: "浙江杭州", description: "西湖是中国著名的旅游景点，以其秀丽的湖光山色和众多的名胜古迹闻名中外。湖中有三潭印月、断桥残雪等著名景观。", model: "models/xihu.glb", coord: [120.15, 30.25] },
+            { name: "西湖", province: "浙江杭州", description: "西湖是中国著名的旅游景点，以其秀丽的湖光山色和众多的名胜古迹闻名中外。湖中有三潭印月、断桥残雪等著名景观。", model: "models/xihu.glb", builder: buildXihu, demo: true, coord: [120.15, 30.25] },
             { name: "灵隐寺", province: "浙江杭州", description: "灵隐寺是中国佛教禅宗十大古刹之一，位于杭州西湖西北面。始建于东晋咸和元年，距今已有近一千七百年的历史。", model: "models/lingyinsi.glb", coord: [120.10, 30.24] }
         ],
         "苏州": [
             { name: "拙政园", province: "江苏苏州", description: "拙政园是中国古典园林的代表作品，与北京颐和园、承德避暑山庄、苏州留园一起被誉为中国四大名园。以水为中心，山水萦绕，厅榭精美。", model: "models/zhuozhengyuan.glb", coord: [120.63, 31.32] }
         ],
         "成都": [
-            { name: "都江堰", province: "四川成都", description: "都江堰是世界文化遗产，是全世界迄今为止，年代最久、唯一留存、以无坝引水为特征的宏大水利工程。由战国时期秦国蜀郡太守李冰父子修建。", model: "models/dujiangyan.glb", coord: [103.62, 31.00] },
-            { name: "武侯祠", province: "四川成都", description: "武侯祠是纪念中国三国时期蜀汉丞相诸葛亮的祠堂。它是全国唯一的君臣合祀祠庙，也是三国遗迹源头。", model: "models/wuhouci.glb", coord: [104.03, 30.64] }
+            { name: "都江堰", province: "四川成都", description: "都江堰是世界文化遗产，是全世界迄今为止，年代最久、唯一留存、以无坝引水为特征的宏大水利工程。由战国时期秦国蜀郡太守李冰父子修建。", model: "models/dujiangyan.glb", builder: buildDujiangyan, demo: true, coord: [103.62, 31.00] },
+            { name: "武侯祠", province: "四川成都", description: "武侯祠是纪念中国三国时期蜀汉丞相诸葛亮的祠堂。它是全国唯一的君臣合祀祠庙，也是三国遗迹源头。", model: "models/wuhouci.glb", builder: buildWuhouci, demo: true, coord: [104.03, 30.64] }
         ]
     };
 
@@ -717,6 +727,11 @@
         html +=
             '<div class="spot-divider"></div>' +
             '<div class="spot-desc">' + spot.description + '</div>';
+        if (spot.demo) {
+            html +=
+                '<div class="demo-tag">※ 当前为示意性 3D 模型（低多边形风格），非实景还原，' +
+                '后续可将实景模型文件放到 <code>' + spot.model + '</code> 替换。</div>';
+        }
         if (modelMissing) {
             html +=
                 '<div class="model-missing">3D 模型文件未找到，当前显示占位模型。<br>' +
@@ -823,6 +838,235 @@
         return group;
     }
 
+    // ==================== 示意性程序化模型（低多边形风格） ====================
+    // 通用材质
+    function stdMat(color, opts) {
+        return new THREE.MeshStandardMaterial(Object.assign({
+            color: color, roughness: 0.85, metalness: 0.05, flatShading: true
+        }, opts || {}));
+    }
+    const MAT_RED   = stdMat(0x9e2b25);            // 朱红（柱、墙）
+    const MAT_ROOF  = stdMat(0x3d4b63);            // 青灰瓦
+    const MAT_STONE = stdMat(0x9aa5b1);            // 石材
+    const MAT_GOLD  = stdMat(0xd4af37, { metalness: 0.6, roughness: 0.35 }); // 鎏金
+    const MAT_WATER = stdMat(0x2f7fbf, { transparent: true, opacity: 0.7, roughness: 0.3 });
+    const MAT_WOOD  = stdMat(0x7a5230);            // 木色
+
+    // 中式四角攒尖顶：w/d 为覆盖面宽深，h 为举高，overhang 为出檐
+    function makeHipRoof(w, d, h, overhang, mat) {
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 4, 1), mat || MAT_ROOF);
+        roof.rotation.y = Math.PI / 4;
+        // 四棱锥底面半边距为 apothem = r*cos(45°)，据此反算缩放使出檐到位
+        roof.scale.set((w / 2 + overhang) / Math.cos(Math.PI / 4), h, (d / 2 + overhang) / Math.cos(Math.PI / 4));
+        return roof;
+    }
+
+    // 西湖：湖心亭 + 断桥意象
+    function buildXihu() {
+        const g = new THREE.Group();
+
+        // 湖面
+        const water = new THREE.Mesh(new THREE.CircleGeometry(2.1, 40), MAT_WATER);
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = -0.9;
+        g.add(water);
+
+        // 八角石台基
+        const plat = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.85, 0.2, 8), MAT_STONE);
+        plat.position.y = -0.78;
+        g.add(plat);
+
+        // 六根朱柱
+        for (let i = 0; i < 6; i++) {
+            const a = i / 6 * Math.PI * 2 + Math.PI / 6;
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.7, 8), MAT_RED);
+            pillar.position.set(Math.cos(a) * 0.5, -0.33, Math.sin(a) * 0.5);
+            g.add(pillar);
+        }
+
+        // 重檐：下层檐 + 上层攒尖顶
+        const eave = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 6, 1), MAT_ROOF);
+        eave.scale.set(0.95, 0.28, 0.95);
+        eave.position.y = 0.12;
+        g.add(eave);
+        const upper = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 6, 1), MAT_ROOF);
+        upper.scale.set(0.6, 0.5, 0.6);
+        upper.position.y = 0.48;
+        g.add(upper);
+
+        // 鎏金宝顶
+        const finial = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), MAT_GOLD);
+        finial.position.y = 0.78;
+        g.add(finial);
+
+        // 断桥：石拱（半个圆环）+ 桥面
+        const bridge = new THREE.Group();
+        const arch = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.09, 8, 20, Math.PI), stdMat(0xd8cfc0));
+        bridge.add(arch);
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.07, 0.28), stdMat(0xcfc5b5));
+        deck.position.y = 0.55;
+        bridge.add(deck);
+        bridge.position.set(1.35, -0.88, -0.4);
+        bridge.rotation.y = 0.5;
+        g.add(bridge);
+
+        // 三潭印月小石塔点缀
+        [[-1.3, 0.7], [-0.9, -1.2]].forEach(function(p) {
+            const stupa = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), MAT_STONE);
+            body.position.y = 0.14;
+            const gourd = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.14, 8), MAT_STONE);
+            gourd.position.y = 0.32;
+            const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.08, 8), MAT_STONE);
+            foot.position.y = 0.02;
+            stupa.add(body, gourd, foot);
+            stupa.position.set(p[0], -0.88, p[1]);
+            g.add(stupa);
+        });
+        return g;
+    }
+
+    // 都江堰：鱼嘴分水堤 + 安澜索桥意象
+    function buildDujiangyan() {
+        const g = new THREE.Group();
+
+        // 内外两江（分汊河道）
+        const riverIn = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 3.2), MAT_WATER);
+        riverIn.rotation.x = -Math.PI / 2;
+        riverIn.rotation.z = 0.35;
+        riverIn.position.set(-0.85, -0.9, 0.3);
+        g.add(riverIn);
+        const riverOut = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 3.2), MAT_WATER);
+        riverOut.rotation.x = -Math.PI / 2;
+        riverOut.rotation.z = -0.25;
+        riverOut.position.set(0.95, -0.9, 0.25);
+        g.add(riverOut);
+
+        // 鱼嘴分水堤：细长梭形堤体
+        const MAT_DIKE = stdMat(0x76828f);
+        const dike = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), MAT_DIKE);
+        dike.scale.set(0.32, 0.22, 1.5);
+        dike.position.set(0, -0.78, -0.1);
+        g.add(dike);
+        // 鱼嘴尖端
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.5, 8), MAT_DIKE);
+        tip.rotation.x = -Math.PI / 2;
+        tip.position.set(0, -0.78, -1.75);
+        g.add(tip);
+
+        // 两岸
+        const bankL = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 3.4), stdMat(0x4a6741));
+        bankL.position.set(-1.85, -0.88, 0.3);
+        g.add(bankL);
+        const bankR = bankL.clone();
+        bankR.position.x = 2.05;
+        g.add(bankR);
+
+        // 安澜索桥：桥塔 + 悬索 + 桥板
+        const bridge = new THREE.Group();
+        [-0.9, 0.9].forEach(function(z) {
+            [-0.16, 0.16].forEach(function(x) {
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.75, 6), MAT_WOOD);
+                leg.position.set(x, 0.32, z);
+                leg.rotation.x = (x > 0 ? -0.12 : 0.12);
+                bridge.add(leg);
+            });
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.08), MAT_WOOD);
+            beam.position.set(0, 0.68, z);
+            bridge.add(beam);
+        });
+        // 桥板（轻微下垂的连续板）
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 2.1), stdMat(0xa9825a));
+        deck.position.y = 0.18;
+        bridge.add(deck);
+        // 主缆（抛物线悬索）
+        [-0.15, 0.15].forEach(function(x) {
+            const curve = new THREE.QuadraticBezierCurve3(
+                new THREE.Vector3(x, 0.68, -0.9),
+                new THREE.Vector3(x, 0.28, 0),
+                new THREE.Vector3(x, 0.68, 0.9)
+            );
+            const cable = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.02, 6), stdMat(0x333333));
+            bridge.add(cable);
+        });
+        bridge.position.set(0.95, -0.78, 0.55);
+        g.add(bridge);
+        return g;
+    }
+
+    // 武侯祠：祠堂门殿 + 红墙 + 石狮意象
+    function buildWuhouci() {
+        const g = new THREE.Group();
+
+        // 台基
+        const base = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.16, 1.4), MAT_STONE);
+        base.position.y = -0.9;
+        g.add(base);
+
+        // 殿身（红墙）
+        const hall = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.75, 0.85), MAT_RED);
+        hall.position.y = -0.45;
+        g.add(hall);
+
+        // 前檐四柱
+        [-0.6, -0.2, 0.2, 0.6].forEach(function(x) {
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.75, 8), MAT_RED);
+            pillar.position.set(x, -0.45, 0.55);
+            g.add(pillar);
+        });
+
+        // 重檐歇山顶：下檐 + 主顶 + 正脊
+        const eave = makeHipRoof(1.9, 1.3, 0.28, 0.12);
+        eave.position.y = 0.02;
+        g.add(eave);
+        const roof = makeHipRoof(1.6, 1.0, 0.5, 0.08);
+        roof.position.y = 0.34;
+        g.add(roof);
+        const ridge = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 0.1), MAT_ROOF);
+        ridge.position.y = 0.57;
+        g.add(ridge);
+        // 脊端鸱吻
+        [-0.55, 0.55].forEach(function(x) {
+            const chiwen = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.1), MAT_GOLD);
+            chiwen.position.set(x, 0.62, 0);
+            g.add(chiwen);
+        });
+
+        // 门额牌匾
+        const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.22, 0.05), stdMat(0x1a1a2e));
+        plaque.position.set(0, 0.02, 0.6);
+        g.add(plaque);
+        const plaqueFrame = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.28, 0.03), MAT_GOLD);
+        plaqueFrame.position.set(0, 0.02, 0.58);
+        g.add(plaqueFrame);
+
+        // 两侧红墙
+        [-1.35, 1.35].forEach(function(x) {
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 0.12), MAT_RED);
+            wall.position.set(x, -0.57, 0.35);
+            g.add(wall);
+            const coping = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.08, 0.2), MAT_ROOF);
+            coping.position.set(x, -0.29, 0.35);
+            g.add(coping);
+        });
+
+        // 门前石狮一对（意象）
+        [-0.55, 0.55].forEach(function(x) {
+            const lion = new THREE.Group();
+            const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.24), MAT_STONE);
+            pedestal.position.y = 0.05;
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.18, 0.2), MAT_STONE);
+            body.position.y = 0.19;
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), MAT_STONE);
+            head.position.set(0, 0.32, 0.06);
+            lion.add(pedestal, body, head);
+            lion.position.set(x, -0.82, 0.85);
+            g.add(lion);
+        });
+        return g;
+    }
+
+
     // 加载模型
     function loadModel(spot) {
         console.log('加载模型:', spot.model, spot.name);
@@ -837,6 +1081,16 @@
 
         const loadingEl = document.getElementById('model-loading');
         loadingEl.style.display = 'flex';
+
+        // 配置了程序化构建函数的景点，直接使用示意模型
+        if (typeof spot.builder === 'function') {
+            loadingEl.style.display = 'none';
+            currentModel = spot.builder();
+            scene.add(currentModel);
+            frameModel(currentModel);
+            console.log('示意模型构建完成:', spot.name);
+            return;
+        }
 
         gltfLoader.load(
             spot.model,
