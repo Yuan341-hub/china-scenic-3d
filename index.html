@@ -347,7 +347,7 @@
         <div id="map-container">
             <div id="map-chart"></div>
         </div>
-        <div id="map-footer">滚轮缩放 &nbsp;·&nbsp; 左键/右键按住拖拽平移 &nbsp;·&nbsp; 点击景点标记进入 3D 浏览</div>
+        <div id="map-footer">点击地图上的景点标记，进入 3D 模型浏览</div>
     </div>
 
     <!-- ========== 3D视图 ========== -->
@@ -605,43 +605,6 @@
                 if (spot) enterScene(spot);
             }
         });
-
-        // ===== 右键按住拖拽平移地图 =====
-        // 通过 geoRoam 动作的 dx/dy 增量实现，与左键 roam 平移效果一致。
-        (function enableRightButtonPan() {
-            const dom = document.getElementById('map-chart');
-            let panning = false;
-            let lastX = 0, lastY = 0;
-
-            dom.addEventListener('contextmenu', function(e) {
-                e.preventDefault(); // 屏蔽浏览器右键菜单
-            });
-            dom.addEventListener('mousedown', function(e) {
-                if (e.button === 2) {
-                    panning = true;
-                    lastX = e.clientX;
-                    lastY = e.clientY;
-                    dom.style.cursor = 'grabbing';
-                    e.preventDefault();
-                }
-            });
-            window.addEventListener('mousemove', function(e) {
-                if (!panning) return;
-                const dx = e.clientX - lastX;
-                const dy = e.clientY - lastY;
-                lastX = e.clientX;
-                lastY = e.clientY;
-                if (dx !== 0 || dy !== 0) {
-                    mapChart.dispatchAction({ type: 'geoRoam', dx: dx, dy: dy });
-                }
-            });
-            window.addEventListener('mouseup', function(e) {
-                if (panning && e.button === 2) {
-                    panning = false;
-                    dom.style.cursor = '';
-                }
-            });
-        })();
 
         // 窗口尺寸变化时自适应（地图视图）
         window.addEventListener('resize', function() {
