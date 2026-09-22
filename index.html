@@ -278,6 +278,89 @@
             font-size: 12px;
             line-height: 1.7;
         }
+        /* 左侧景点名片 */
+        #left-info { flex: 1; overflow-y: auto; padding: 0 24px 20px !important; }
+        #left-info .card-name { font-size: 24px; font-weight: 700; color: #fff; letter-spacing: 2px; margin-bottom: 8px; }
+        #left-info .card-pills { margin-bottom: 16px; }
+        #left-info .card-pill {
+            display: inline-block;
+            background: rgba(76, 201, 240, 0.12);
+            border: 1px solid rgba(76, 201, 240, 0.25);
+            border-radius: 20px;
+            padding: 3px 12px;
+            font-size: 11px;
+            color: #4cc9f0;
+            margin: 0 6px 6px 0;
+        }
+        #left-info .card-pill.gold {
+            background: rgba(212, 175, 55, 0.1);
+            border-color: rgba(212, 175, 55, 0.3);
+            color: #d4af37;
+        }
+        #left-info .card-divider {
+            height: 1px;
+            background: linear-gradient(90deg, rgba(76, 201, 240, 0.3), transparent);
+            margin: 12px 0;
+        }
+        #left-info .info-row {
+            display: flex;
+            gap: 10px;
+            padding: 7px 0;
+            border-bottom: 1px dashed rgba(76, 201, 240, 0.08);
+            font-size: 12.5px;
+            line-height: 1.7;
+        }
+        #left-info .info-label {
+            color: #4cc9f0;
+            width: 60px;
+            flex-shrink: 0;
+            font-weight: 500;
+        }
+        #left-info .info-value { color: #b0bec5; flex: 1; }
+        #left-info::-webkit-scrollbar { width: 4px; }
+        #left-info::-webkit-scrollbar-thumb { background: rgba(76, 201, 240, 0.2); border-radius: 2px; }
+        /* 右侧详情分区 */
+        #info-content .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4cc9f0;
+            letter-spacing: 2px;
+            margin: 20px 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #info-content .section-title::before {
+            content: '';
+            display: inline-block;
+            width: 3px;
+            height: 14px;
+            background: linear-gradient(180deg, #4cc9f0, #7b61ff);
+            border-radius: 2px;
+        }
+        #info-content .highlight-list { list-style: none; padding: 0; margin: 0; }
+        #info-content .highlight-list li {
+            position: relative;
+            padding: 6px 0 6px 18px;
+            font-size: 13px;
+            line-height: 1.8;
+            color: #90a4ae;
+            border-bottom: 1px dashed rgba(76, 201, 240, 0.08);
+        }
+        #info-content .highlight-list li::before {
+            content: '◆';
+            position: absolute;
+            left: 0;
+            color: #7b61ff;
+            font-size: 9px;
+            top: 11px;
+        }
+        #info-content .culture-text {
+            font-size: 13px;
+            line-height: 2;
+            color: #90a4ae;
+            text-align: justify;
+        }
         #info-content .placeholder-text {
             color: #4a5568;
             font-size: 13px;
@@ -364,15 +447,12 @@
     <div id="scene-view" class="view view-hidden">
         <div id="left-panel">
             <div class="panel-header">
-                <h2>景点选择</h2>
+                <h2>景点档案</h2>
             </div>
             <div class="panel-body">
                 <button id="back-btn">&#8592; 返回地图</button>
             </div>
-            <div id="left-info" style="padding: 0 24px 24px; display:none;">
-                <div style="font-size:22px; font-weight:700; color:#fff; margin-bottom:6px;" id="left-spot-name"></div>
-                <div style="display:inline-block; background:rgba(76,201,240,0.12); border:1px solid rgba(76,201,240,0.25); border-radius:20px; padding:4px 14px; font-size:12px; color:#4cc9f0;" id="left-spot-province"></div>
-            </div>
+            <div id="left-info" style="display:none;"></div>
             <div class="panel-footer">
                 支持鼠标左键旋转 / 右键平移 / 滚轮缩放<br>
                 点击模型可查看详细信息
@@ -389,7 +469,7 @@
         </div>
         <div id="right-panel">
             <div class="panel-header">
-                <h2>景点信息</h2>
+                <h2>详细介绍</h2>
             </div>
             <div class="panel-body">
                 <div id="info-content">
@@ -464,6 +544,119 @@
 
     // 扁平化景点列表，方便查找
     const allSpots = Object.values(scenicData).flat();
+
+    // 景点详细资料（门票/开放时间为公开信息参考值，以景区官方公告为准）
+    const spotDetails = {
+        "故宫": {
+            category: "皇家宫殿 · 博物馆", level: "世界文化遗产 / 国家5A级",
+            era: "明永乐四年（1406年）始建，1420年建成",
+            ticket: "旺季 60 元 / 淡季 40 元（参考）", hours: "8:30–17:00，周一闭馆（参考）", duration: "半天 – 1 天",
+            highlights: [
+                "太和殿（金銮宝殿）：明清皇帝举行登基、大婚、册封等大典的场所",
+                "中轴线布局：外朝三大殿与内廷后三宫，体现皇权礼制秩序",
+                "珍宝馆、钟表馆：故宫博物院藏品逾 186 万件（套）",
+                "角楼：九梁十八柱七十二条脊的木构建筑杰作"
+            ],
+            culture: "北京故宫是世界上现存规模最大、保存最为完整的木结构宫殿建筑群，明清两代共有 24 位皇帝在此执政居住。它是中国古代宫廷建筑之精华，也是研究封建社会政治制度、礼仪文化与营造技艺的核心实物遗存。"
+        },
+        "长城": {
+            category: "古代军事防御工程", level: "世界文化遗产 / 国家5A级",
+            era: "始建于春秋战国，现存主体为明长城（1368–1644）",
+            ticket: "八达岭旺季 40 元（参考）", hours: "6:30–19:00（旺季，参考）", duration: "半天 – 1 天",
+            highlights: [
+                "八达岭：明长城中保存最完整、最具代表性的段落",
+                "敌楼与烽火台：瞭望、传讯、驻防一体化的防御体系",
+                "金山岭：摄影爱好者心中的长城精华段",
+                "总长度逾 2.1 万千米，横跨中国北方 15 个省区市"
+            ],
+            culture: "长城是人类历史上持续修筑时间最长、工程量最大的军事防御工程，1987 年列入《世界遗产名录》。它见证了农耕文明与游牧文明两千余年的交融与碰撞，已成为中华民族精神的象征。"
+        },
+        "兵马俑": {
+            category: "考古遗址 · 博物馆", level: "世界文化遗产 / 国家5A级",
+            era: "公元前 246–208 年（秦代）",
+            ticket: "120 元（参考）", hours: "8:30–17:00（参考）", duration: "3 – 4 小时",
+            highlights: [
+                "一号坑：6000 余件陶俑组成的步兵军阵，气势恢宏",
+                "铜车马：被誉为「青铜之冠」的秦代工艺巅峰",
+                "跪射俑、将军俑：千人千面的写实雕塑艺术",
+                "秦始皇陵遗址公园：可与丽山园联游"
+            ],
+            culture: "秦始皇兵马俑是秦始皇陵的陪葬坑，已出土陶俑、陶马 8000 余件，被誉为「世界第八大奇迹」。其写实主义的雕塑手法与标准化的制作工艺，为研究秦代军事、艺术与社会提供了独一无二的实物证据。"
+        },
+        "大雁塔": {
+            category: "佛教建筑 · 古塔", level: "世界文化遗产（丝绸之路）/ 国家5A级",
+            era: "唐永徽三年（652年）玄奘主持修建",
+            ticket: "大慈恩寺 40 元，登塔 25 元（参考）", hours: "8:00–17:30（参考）", duration: "1 – 2 小时",
+            highlights: [
+                "七层楼阁式砖塔，通高 64.5 米，唐代四方塔典范",
+                "玄奘译经场：汉传佛教唯识宗祖庭大慈恩寺",
+                "塔内藏有玄奘取经带回的经卷、佛像相关文物",
+                "北广场音乐喷泉：亚洲最大的矩阵喷泉之一"
+            ],
+            culture: "大雁塔是玄奘法师为保存由天竺经丝绸之路带回长安的经卷佛像而主持修建的佛塔，是现存最早、规模最大的唐代四方楼阁式砖塔，2014 年作为「丝绸之路」遗产点列入《世界遗产名录》。"
+        },
+        "西湖": {
+            category: "湖泊 · 文化景观", level: "世界文化遗产 / 国家5A级",
+            era: "天然潟湖演变而成，唐宋以来历代疏浚营建",
+            ticket: "环湖免费，部分景点单独收费（参考）", hours: "全天开放", duration: "1 天",
+            highlights: [
+                "西湖十景：苏堤春晓、断桥残雪、平湖秋月等经典题名景观",
+                "三潭印月：第五套人民币一元纸币背面图案",
+                "白堤、苏堤：白居易、苏轼疏浚西湖留下的长堤",
+                "雷峰夕照：雷峰塔与《白蛇传》传说"
+            ],
+            culture: "西湖于 2011 年以「文化景观」列入《世界遗产名录》，是中国历代文人寄情山水的审美典范。「淡妆浓抹总相宜」的湖山格局影响了东亚园林艺术数百年，也是免费开放的 5A 级景区典范。"
+        },
+        "灵隐寺": {
+            category: "佛教寺院", level: "全国重点文物保护单位",
+            era: "东晋咸和元年（326年）创建",
+            ticket: "飞来峰 45 元 + 寺院香花券 30 元（参考）", hours: "7:00–18:00（参考）", duration: "2 – 3 小时",
+            highlights: [
+                "飞来峰造像：现存 340 余尊五代至宋元石窟造像",
+                "大雄宝殿：高 33.6 米的单层重檐建筑，庄严宏伟",
+                "济公传说：道济禅师出家之地",
+                "冷泉溪与理公塔：禅意山水相映"
+            ],
+            culture: "灵隐寺始建于东晋，距今近 1700 年，是中国佛教禅宗十大古刹之一，也是杭州最早的名刹。寺前飞来峰的石窟造像是江南地区规模最大、题材最丰富的古代石窟艺术遗存之一。"
+        },
+        "拙政园": {
+            category: "古典园林", level: "世界文化遗产 / 国家5A级",
+            era: "明正德四年（1509年）始建",
+            ticket: "旺季 80 元 / 淡季 70 元（参考）", hours: "7:30–17:30（参考）", duration: "2 – 3 小时",
+            highlights: [
+                "以水为中心：水面约占全园三分之一，山水萦绕",
+                "借景北寺塔：中国园林借景手法的教科书级案例",
+                "远香堂、香洲、小飞虹：厅榭精美的明代建筑",
+                "文徵明参与设计并绘制《拙政园三十一景图》"
+            ],
+            culture: "拙政园与北京颐和园、承德避暑山庄、苏州留园并称中国四大名园，1997 年作为苏州古典园林代表列入《世界遗产名录》。其「虽由人作，宛自天开」的造园艺术代表了江南文人园林的最高成就。"
+        },
+        "都江堰": {
+            category: "古代水利工程", level: "世界文化遗产 / 国家5A级",
+            era: "公元前 256 年（战国·秦）李冰父子主持修建",
+            ticket: "80 元（参考）", hours: "8:00–18:00（参考）", duration: "半天 – 1 天",
+            highlights: [
+                "鱼嘴分水堤：将岷江分为内江、外江，四六分水",
+                "飞沙堰：泄洪排沙的关键工程，二八分沙",
+                "宝瓶口：控制进水量的咽喉要道",
+                "安澜索桥、二王庙：纪念李冰父子的文化地标"
+            ],
+            culture: "都江堰是全世界迄今为止年代最久、唯一留存、以无坝引水为特征的宏大水利工程，历经 2200 余年至今仍灌溉着成都平原逾千万亩良田，造就了「天府之国」，2000 年列入《世界遗产名录》。"
+        },
+        "武侯祠": {
+            category: "祠庙 · 博物馆", level: "全国重点文物保护单位 / 三国圣地",
+            era: "始建于公元 223 年（蜀汉章武三年）",
+            ticket: "50 元（参考）", hours: "8:00–20:00（参考）", duration: "2 – 3 小时",
+            highlights: [
+                "君臣合祀：全国唯一刘备与诸葛亮合祀的祠庙",
+                "三绝碑：唐代裴文、柳书、鲁刻「三绝」名碑",
+                "红墙竹影：惠陵神道旁的标志性景观",
+                "毗邻锦里古街：三国文化与川西民俗交融"
+            ],
+            culture: "成都武侯祠肇始于刘备惠陵，是全国影响最大的三国遗迹博物馆，被誉为「三国圣地」。「丞相祠堂何处寻，锦官城外柏森森」——杜甫的诗句让这里成为瞻仰诸葛亮「鞠躬尽瘁」精神的文化朝圣地。"
+        }
+    };
+
 
     // ==================== 视图切换 ====================
     let currentView = 'map'; // 'map' | 'scene'
@@ -700,6 +893,30 @@
         renderer.setSize(container.clientWidth, container.clientHeight);
     }
 
+    // 渲染左侧景点名片
+    function renderLeftCard(spot) {
+        const el = document.getElementById('left-info');
+        el.style.display = 'block';
+        const d = spotDetails[spot.name] || {};
+        let rows = '';
+        [
+            ['类别', d.category], ['荣誉', d.level], ['年代', d.era],
+            ['门票', d.ticket], ['开放', d.hours], ['游玩', d.duration]
+        ].forEach(function(f) {
+            if (f[1]) {
+                rows += '<div class="info-row"><div class="info-label">' + f[0] +
+                    '</div><div class="info-value">' + f[1] + '</div></div>';
+            }
+        });
+        el.innerHTML =
+            '<div class="card-name">' + spot.name + '</div>' +
+            '<div class="card-pills">' +
+                '<span class="card-pill">' + spot.province + '</span>' +
+                (d.category ? '<span class="card-pill gold">' + d.category + '</span>' : '') +
+            '</div>' +
+            '<div class="card-divider"></div>' + rows;
+    }
+
     // 进入3D场景
     function enterScene(spot) {
         if (!scene) {
@@ -709,9 +926,7 @@
         switchView('scene');
 
         // 更新左侧面板
-        document.getElementById('left-info').style.display = 'block';
-        document.getElementById('left-spot-name').textContent = spot.name;
-        document.getElementById('left-spot-province').textContent = spot.province;
+        renderLeftCard(spot);
 
         // 更新右侧信息
         renderInfo(spot, null);
@@ -727,6 +942,16 @@
         html +=
             '<div class="spot-divider"></div>' +
             '<div class="spot-desc">' + spot.description + '</div>';
+        const d = spotDetails[spot.name];
+        if (d) {
+            html +=
+                '<div class="section-title">核心看点</div>' +
+                '<ul class="highlight-list">' +
+                d.highlights.map(function(h) { return '<li>' + h + '</li>'; }).join('') +
+                '</ul>' +
+                '<div class="section-title">文化价值</div>' +
+                '<div class="culture-text">' + d.culture + '</div>';
+        }
         if (spot.demo) {
             html +=
                 '<div class="demo-tag">※ 当前为示意性 3D 模型（低多边形风格），非实景还原，' +
