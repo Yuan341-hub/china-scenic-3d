@@ -510,7 +510,7 @@
             { name: "拙政园", province: "江苏苏州", description: "拙政园是中国古典园林的代表作品，与北京颐和园、承德避暑山庄、苏州留园一起被誉为中国四大名园。以水为中心，山水萦绕，厅榭精美。", model: "models/zhuozhengyuan.glb", coord: [120.63, 31.32] }
         ],
         "成都": [
-            { name: "都江堰", province: "四川成都", description: "都江堰是世界文化遗产，是全世界迄今为止，年代最久、唯一留存、以无坝引水为特征的宏大水利工程。由战国时期秦国蜀郡太守李冰父子修建。", model: "models/dujiangyan.glb", coord: [103.62, 31.00] },
+            { name: "都江堰", province: "四川成都", description: "都江堰是世界文化遗产，是全世界迄今为止，年代最久、唯一留存、以无坝引水为特征的宏大水利工程。由战国时期秦国蜀郡太守李冰父子修建。", model: "models/dujiangyan.glb", coord: [103.62, 31.00], builder: buildDujiangyan },
             { name: "武侯祠", province: "四川成都", description: "武侯祠是纪念中国三国时期蜀汉丞相诸葛亮的祠堂。它是全国唯一的君臣合祀祠庙，也是三国遗迹源头。", model: "models/wuhouci.glb", coord: [104.03, 30.64] }
         ]
     };
@@ -613,6 +613,12 @@
                 "飞沙堰：泄洪排沙的关键工程，二八分沙",
                 "宝瓶口：控制进水量的咽喉要道",
                 "安澜索桥、二王庙：纪念李冰父子的文化地标"
+            ],
+            principle: [
+                "鱼嘴分水：江心的鱼嘴分水堤把岷江分为内江（引水灌溉）与外江（泄洪排沙）。枯水期六成水入内江保证灌溉，洪水期六成水走外江自动泄洪，即「四六分水」。",
+                "飞沙堰排沙：内江水流至飞沙堰时形成弯道环流，表层清水流向宝瓶口，底层挟沙浊流被甩向外江；洪水超过堰顶时自动溢流，实现「二八分沙」与二次泄洪。",
+                "宝瓶口控流：李冰率众凿穿玉垒山形成的狭窄引水口，如同天然节制闸，限制进入成都平原的水量，与飞沙堰配合使平原「水旱从人」。",
+                "三地联动：鱼嘴分流、飞沙堰排沙泄洪、宝瓶口控流，三者构成无坝引水的完整系统，上方 3D 模型即展示这一布局关系。"
             ],
             culture: "都江堰是全世界迄今为止年代最久、唯一留存、以无坝引水为特征的宏大水利工程，历经 2200 余年至今仍灌溉着成都平原逾千万亩良田，造就了「天府之国」，2000 年列入《世界遗产名录》。"
         },
@@ -853,6 +859,10 @@
             if (currentModel && currentModel.userData.isPlaceholder) {
                 currentModel.rotation.y += 0.005;
             }
+            // 水流动画（如都江堰原理图）
+            if (currentModel && currentModel.userData.flowUpdate) {
+                currentModel.userData.flowUpdate(performance.now() / 1000);
+            }
             renderer.render(scene, camera);
         }
     }
@@ -921,7 +931,15 @@
                 '<div class="section-title">核心看点</div>' +
                 '<ul class="highlight-list">' +
                 d.highlights.map(function(h) { return '<li>' + h + '</li>'; }).join('') +
-                '</ul>' +
+                '</ul>';
+            if (d.principle) {
+                html +=
+                    '<div class="section-title">治水原理</div>' +
+                    '<ul class="highlight-list">' +
+                    d.principle.map(function(p) { return '<li>' + p + '</li>'; }).join('') +
+                    '</ul>';
+            }
+            html +=
                 '<div class="section-title">文化价值</div>' +
                 '<div class="culture-text">' + d.culture + '</div>';
         }
@@ -1124,71 +1142,164 @@
         return g;
     }
 
-    // 都江堰：鱼嘴分水堤 + 安澜索桥意象
+    // 都江堰：治水原理示意图（鱼嘴分水 / 飞沙堰排沙 / 宝瓶口控流）
+    // 布局：z 轴负方向为上游。岷江自北向南，经鱼嘴分为外江（西）与内江（东），
+    // 内江中游设飞沙堰（低堰，洪水溢流回外江），末端穿玉垒山缺口即宝瓶口。
     function buildDujiangyan() {
         const g = new THREE.Group();
+        const flowTex = [];
 
-        // 内外两江（分汊河道）
-        const riverIn = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 3.2), MAT_WATER);
-        riverIn.rotation.x = -Math.PI / 2;
-        riverIn.rotation.z = 0.35;
-        riverIn.position.set(-0.85, -0.9, 0.3);
-        g.add(riverIn);
-        const riverOut = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 3.2), MAT_WATER);
-        riverOut.rotation.x = -Math.PI / 2;
-        riverOut.rotation.z = -0.25;
-        riverOut.position.set(0.95, -0.9, 0.25);
-        g.add(riverOut);
+        // 带流向纹理的水面
+        function makeWaterTex() {
+            const cv = document.createElement('canvas');
+            cv.width = 64; cv.height = 256;
+            const c = cv.getContext('2d');
+            c.fillStyle = '#1f6fb8'; c.fillRect(0, 0, 64, 256);
+            c.strokeStyle = 'rgba(160,220,255,0.55)'; c.lineWidth = 3;
+            for (let i = 0; i < 8; i++) {
+                const y = i * 32 + 6;
+                c.beginPath();
+                c.moveTo(4, y); c.quadraticCurveTo(32, y + 10, 60, y);
+                c.stroke();
+            }
+            const t = new THREE.CanvasTexture(cv);
+            t.wrapS = t.wrapT = THREE.RepeatWrapping;
+            flowTex.push(t);
+            return t;
+        }
+        function water(w, l, x, z, rotZ) {
+            const m = new THREE.Mesh(
+                new THREE.PlaneGeometry(w, l),
+                new THREE.MeshStandardMaterial({ map: makeWaterTex(), transparent: true, opacity: 0.85, roughness: 0.25, metalness: 0.1 })
+            );
+            m.rotation.x = -Math.PI / 2;
+            if (rotZ) m.rotation.z = rotZ;
+            m.position.set(x, -0.82, z);
+            g.add(m);
+            return m;
+        }
+        // 文字标注牌
+        function label(text, x, y, z, scale) {
+            const cv = document.createElement('canvas');
+            cv.width = 256; cv.height = 80;
+            const c = cv.getContext('2d');
+            c.fillStyle = 'rgba(8,16,26,0.78)';
+            c.beginPath(); c.roundRect(0, 0, 256, 80, 14); c.fill();
+            c.strokeStyle = 'rgba(120,190,255,0.8)'; c.lineWidth = 3;
+            c.beginPath(); c.roundRect(3, 3, 250, 74, 12); c.stroke();
+            c.fillStyle = '#eaf6ff';
+            c.font = '700 42px "Microsoft YaHei", sans-serif';
+            c.textAlign = 'center'; c.textBaseline = 'middle';
+            c.fillText(text, 128, 42);
+            const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true }));
+            const s = scale || 1;
+            sp.scale.set(0.64 * s, 0.2 * s, 1);
+            sp.position.set(x, y, z);
+            g.add(sp);
+            return sp;
+        }
 
-        // 鱼嘴分水堤：细长梭形堤体
-        const MAT_DIKE = stdMat(0x76828f);
-        const dike = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), MAT_DIKE);
-        dike.scale.set(0.32, 0.22, 1.5);
-        dike.position.set(0, -0.78, -0.1);
+        const MAT_BANK = stdMat(0x4a6741);   // 岸坡植被
+        const MAT_EARTH = stdMat(0x8a7a5a);  // 土滩
+        const MAT_MOUNT = stdMat(0x5d6b52);  // 山体
+        const MAT_DIKE = stdMat(0x76828f);   // 堤堰石料
+
+        // 地形基座
+        const base = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.3, 8.4), MAT_EARTH);
+        base.position.set(0, -1.12, 0);
+        g.add(base);
+
+        // 岷江上游（未分流段）
+        water(1.5, 2.2, 0, -2.55, 0);
+        label('岷江', 0, 0.15, -3.35, 1.05);
+
+        // 外江（西侧，较宽）
+        water(1.6, 5.6, -1.35, 1.0, 0.06);
+        label('外江 · 泄洪', -1.7, 0.05, 1.9);
+        // 内江（东侧，较窄）
+        water(1.0, 4.2, 0.85, 0.75, -0.04);
+        label('内江 · 灌溉', 1.05, 0.05, 0.2);
+
+        // 鱼嘴分水堤（梭形堤体 + 尖端）
+        const dike = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), MAT_DIKE);
+        dike.scale.set(0.34, 0.24, 1.15);
+        dike.position.set(0, -0.72, -1.15);
         g.add(dike);
-        // 鱼嘴尖端
-        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.5, 8), MAT_DIKE);
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.6, 10), MAT_DIKE);
         tip.rotation.x = -Math.PI / 2;
-        tip.position.set(0, -0.78, -1.75);
+        tip.position.set(0, -0.72, -2.28);
         g.add(tip);
+        label('鱼嘴 · 四六分水', 0, 0.25, -1.35, 1.1);
+
+        // 金刚堤（分水堤向下游延伸，隔开内外江）
+        const dike2 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.34, 2.1), MAT_DIKE);
+        dike2.position.set(0.02, -0.72, 0.3);
+        g.add(dike2);
+
+        // 飞沙堰（低堰：内江水大可漫过堰顶流回外江）
+        const weir = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.14, 0.8), stdMat(0x97a3ad));
+        weir.position.set(0.0, -0.82, 1.55);
+        g.add(weir);
+        // 堰顶溢流水面
+        water(0.5, 0.8, 0.0, 1.55, 0);
+        label('飞沙堰 · 二八分沙', -0.55, 0.1, 1.6, 1.05);
+
+        // 内江末段收窄，流向宝瓶口
+        water(0.85, 1.6, 0.95, 2.6, 0);
+
+        // 玉垒山（东侧山脊，中部缺口即宝瓶口）
+        const m1 = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.5, 8), MAT_MOUNT);
+        m1.scale.set(1.1, 1, 1.6);
+        m1.position.set(2.0, -0.35, 1.75);
+        g.add(m1);
+        const m2 = new THREE.Mesh(new THREE.ConeGeometry(0.85, 1.3, 8), MAT_MOUNT);
+        m2.scale.set(1.05, 1, 1.5);
+        m2.position.set(2.05, -0.42, 3.15);
+        g.add(m2);
+        label('玉垒山', 2.15, 0.75, 1.75);
+        // 宝瓶口：山体缺口中的狭窄引水通道（+x 方向穿山东去）
+        water(0.9, 0.62, 1.95, 2.45, Math.PI / 2);
+        // 离堆（宝瓶口内侧孤丘）
+        const lidui = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.55, 8), MAT_MOUNT);
+        lidui.position.set(1.28, -0.6, 2.45);
+        g.add(lidui);
+        label('宝瓶口 · 控流', 1.9, 0.35, 2.45, 1.05);
 
         // 两岸
-        const bankL = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 3.4), stdMat(0x4a6741));
-        bankL.position.set(-1.85, -0.88, 0.3);
-        g.add(bankL);
-        const bankR = bankL.clone();
-        bankR.position.x = 2.05;
-        g.add(bankR);
+        const bankW = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.35, 7.6), MAT_BANK);
+        bankW.position.set(-2.6, -0.95, 0.2);
+        g.add(bankW);
+        const bankE = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 3.6), MAT_BANK);
+        bankE.position.set(1.45, -0.97, -0.7);
+        g.add(bankE);
 
-        // 安澜索桥：桥塔 + 悬索 + 桥板
+        // 安澜索桥：横跨内外两江
+        const MAT_WOOD2 = stdMat(0x6b4f35);
         const bridge = new THREE.Group();
-        [-0.9, 0.9].forEach(function(z) {
-            [-0.16, 0.16].forEach(function(x) {
-                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.75, 6), MAT_WOOD);
-                leg.position.set(x, 0.32, z);
-                leg.rotation.x = (x > 0 ? -0.12 : 0.12);
-                bridge.add(leg);
-            });
-            const beam = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.08), MAT_WOOD);
-            beam.position.set(0, 0.68, z);
-            bridge.add(beam);
+        [-2.05, -0.45, 1.35].forEach(function(x) {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.9, 6), MAT_WOOD2);
+            leg.position.set(x, -0.4, 0);
+            bridge.add(leg);
         });
-        // 桥板（轻微下垂的连续板）
-        const deck = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 2.1), stdMat(0xa9825a));
-        deck.position.y = 0.18;
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.05, 0.34), stdMat(0xa9825a));
+        deck.position.y = 0.06;
         bridge.add(deck);
-        // 主缆（抛物线悬索）
-        [-0.15, 0.15].forEach(function(x) {
+        [-0.14, 0.14].forEach(function(z) {
             const curve = new THREE.QuadraticBezierCurve3(
-                new THREE.Vector3(x, 0.68, -0.9),
-                new THREE.Vector3(x, 0.28, 0),
-                new THREE.Vector3(x, 0.68, 0.9)
+                new THREE.Vector3(-2.05, 0.12, z),
+                new THREE.Vector3(-0.3, -0.12, z),
+                new THREE.Vector3(1.35, 0.12, z)
             );
-            const cable = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.02, 6), stdMat(0x333333));
-            bridge.add(cable);
+            bridge.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.018, 6), stdMat(0x333333)));
         });
-        bridge.position.set(0.95, -0.78, 0.55);
+        bridge.position.set(-0.15, -0.55, -0.35);
         g.add(bridge);
+        label('安澜索桥', -1.15, 0.35, -0.5, 0.95);
+
+        // 水流动画挂钩
+        g.userData.flowUpdate = function(t) {
+            flowTex.forEach(function(tx) { tx.offset.y = -t * 0.35; });
+        };
         return g;
     }
 
@@ -1265,6 +1376,39 @@
     }
 
 
+    // 武侯祠门匾：黑底金字「武侯祠」（传统从右至左书写）
+    // 挂载为模型子节点，坐标使用模型局部坐标系
+    function addWuhouciPlaque(model) {
+        const cv = document.createElement('canvas');
+        cv.width = 1024; cv.height = 256;
+        const ctx = cv.getContext('2d');
+        // 黑底（略带木质深棕黑，贴近真实匾漆）
+        ctx.fillStyle = '#141210';
+        ctx.fillRect(0, 0, 1024, 256);
+        // 金色边框
+        ctx.strokeStyle = '#C9A84C';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(14, 14, 996, 228);
+        // 金色大字，从右至左：武 侯 祠
+        ctx.fillStyle = '#D8B45A';
+        ctx.font = '700 150px KaiTi, STKaiti, "楷体", serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 6;
+        const chars = ['武', '侯', '祠'];
+        const xs = [810, 512, 214];
+        for (let i = 0; i < 3; i++) ctx.fillText(chars[i], xs[i], 134);
+        const tex = new THREE.CanvasTexture(cv);
+        tex.anisotropy = 4;
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: false });
+        // 模型局部坐标：x 0.1785(+x面表层), y 0.4125, z 0；宽0.15 高0.0375
+        const plaque = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.0375), mat);
+        plaque.position.set(0.1785, 0.4125, 0);
+        plaque.rotation.y = Math.PI / 2; // 面向 +x
+        model.add(plaque);
+    }
+
     // 加载模型
     function loadModel(spot) {
         console.log('加载模型:', spot.model, spot.name);
@@ -1297,6 +1441,7 @@
                 const model = gltf.scene;
                 scene.add(model);
                 currentModel = model;
+                if (spot.name === '武侯祠') addWuhouciPlaque(model);
                 frameModel(model);
                 console.log('模型加载完成:', spot.name);
             },
