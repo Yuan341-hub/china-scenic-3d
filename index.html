@@ -114,7 +114,7 @@
             padding: 24px;
             flex: 1;
         }
-        #back-btn {
+        #back-btn, #model-toggle .toggle-btn {
             width: 100%;
             padding: 12px 16px;
             border-radius: 10px;
@@ -130,10 +130,21 @@
             gap: 8px;
             justify-content: center;
         }
-        #back-btn:hover {
+        #back-btn:hover, #model-toggle .toggle-btn:hover {
             border-color: #4cc9f0;
             background: rgba(76, 201, 240, 0.1);
             box-shadow: 0 0 20px rgba(76, 201, 240, 0.15);
+        }
+        #model-toggle {
+            margin-top: 12px;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #model-toggle .toggle-btn.active {
+            border-color: #4cc9f0;
+            background: rgba(76, 201, 240, 0.18);
+            color: #ffffff;
+            box-shadow: 0 0 20px rgba(76, 201, 240, 0.2);
         }
         #left-panel .panel-footer {
             padding: 16px 24px;
@@ -450,6 +461,10 @@
             </div>
             <div class="panel-body">
                 <button id="back-btn">&#8592; 返回地图</button>
+                <div id="model-toggle" style="display:none;">
+                    <button class="toggle-btn active" id="btn-schematic">原理模型</button>
+                    <button class="toggle-btn" id="btn-realistic">真实模型</button>
+                </div>
             </div>
             <div id="left-info" style="display:none;"></div>
             <div class="panel-footer">
@@ -911,10 +926,38 @@
         // 更新左侧面板
         renderLeftCard(spot);
 
+        // 模型切换按钮：同时拥有原理构建与实景模型的景点才显示
+        const toggleEl = document.getElementById('model-toggle');
+        if (typeof spot.builder === 'function' && spot.model) {
+            toggleEl.style.display = 'flex';
+            updateModelToggle(spot);
+        } else {
+            toggleEl.style.display = 'none';
+        }
+
         // 更新右侧信息
         renderInfo(spot, null);
         loadModel(spot);
     }
+
+    // 更新模型切换按钮的选中状态
+    function updateModelToggle(spot) {
+        const useBuilder = spot.useBuilder !== false;
+        document.getElementById('btn-schematic').classList.toggle('active', useBuilder);
+        document.getElementById('btn-realistic').classList.toggle('active', !useBuilder);
+    }
+
+    // 切换原理模型 / 真实模型
+    function switchModelKind(useBuilder) {
+        if (!currentSpotInfo) return;
+        if ((currentSpotInfo.useBuilder !== false) === useBuilder) return;
+        currentSpotInfo.useBuilder = useBuilder;
+        updateModelToggle(currentSpotInfo);
+        loadModel(currentSpotInfo);
+    }
+
+    document.getElementById('btn-schematic').addEventListener('click', function() { switchModelKind(true); });
+    document.getElementById('btn-realistic').addEventListener('click', function() { switchModelKind(false); });
 
     // 渲染右侧信息面板
     function renderInfo(spot, extraTag) {
@@ -1424,8 +1467,8 @@
         const loadingEl = document.getElementById('model-loading');
         loadingEl.style.display = 'flex';
 
-        // 配置了程序化构建函数的景点，直接使用示意模型
-        if (typeof spot.builder === 'function') {
+        // 配置了程序化构建函数且未切换到真实模型的景点，使用示意模型
+        if (typeof spot.builder === 'function' && spot.useBuilder !== false) {
             loadingEl.style.display = 'none';
             currentModel = spot.builder();
             scene.add(currentModel);
