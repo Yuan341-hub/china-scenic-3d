@@ -1452,6 +1452,9 @@
         model.add(plaque);
     }
 
+    // 模型文件版本号：更新 GLB 后递增，避免浏览器缓存旧模型
+    const MODEL_V = '20261005b';
+
     // 加载模型
     function loadModel(spot) {
         console.log('加载模型:', spot.model, spot.name);
@@ -1478,7 +1481,7 @@
         }
 
         gltfLoader.load(
-            spot.model,
+            spot.model + (spot.model.includes('?') ? '&' : '?') + 'v=' + MODEL_V,
             function(gltf) {
                 loadingEl.style.display = 'none';
                 const model = gltf.scene;
