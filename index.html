@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>中国景点3D展示</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
@@ -483,39 +482,13 @@
     </div>
 
     <!-- Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="libs/echarts.min.js"></script>
+    <script src="libs/three.min.js"></script>
+    <script src="libs/GLTFLoader.js"></script>
+    <script src="libs/OrbitControls.js"></script>
     <script>
-    // Three.js 插件（GLTFLoader / OrbitControls）：主 CDN 失败时自动回退备用 CDN
-    (function loadThreePlugins() {
-        var sources = [
-            ['https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
-             'https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js'],
-            ['https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js',
-             'https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js']
-        ];
-        var chain = Promise.resolve();
-        sources.forEach(function(pair) {
-            chain = chain.then(function() {
-                return new Promise(function(resolve) {
-                    var tried = 0;
-                    function attempt() {
-                        var s = document.createElement('script');
-                        s.src = pair[tried];
-                        s.onload = function() { resolve(); };
-                        s.onerror = function() {
-                            tried++;
-                            if (tried < pair.length) { attempt(); }
-                            else { console.error('插件加载失败:', pair[0]); resolve(); }
-                        };
-                        document.head.appendChild(s);
-                    }
-                    attempt();
-                });
-            });
-        });
-        chain.then(function() { window.__threePluginsReady = true; });
-    })();
+    // Three.js 插件已本地化（libs/GLTFLoader.js / libs/OrbitControls.js）
+    window.__threePluginsReady = true;
     </script>
 
     <script>
@@ -686,8 +659,8 @@
     function initMap() {
         mapChart = echarts.init(document.getElementById('map-chart'), null, { renderer: 'canvas' });
 
-        // 从CDN获取中国GeoJSON
-        fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
+        // 加载本地中国GeoJSON
+        fetch('data/china.json')
             .then(res => res.json())
             .then(chinaJson => {
                 echarts.registerMap('china', chinaJson);
