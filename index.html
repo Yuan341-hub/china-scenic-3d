@@ -371,6 +371,89 @@
             color: #90a4ae;
             text-align: justify;
         }
+        /* ========== 关联实体高亮链接 ========== */
+        .entity-link {
+            cursor: pointer;
+            font-weight: 600;
+            padding: 0 3px;
+            border-radius: 4px;
+            border-bottom: 1px dashed transparent;
+            transition: background 0.2s, box-shadow 0.2s;
+            white-space: nowrap;
+        }
+        .entity-link.person {
+            color: #ffd166;
+            border-bottom-color: rgba(255, 209, 102, 0.55);
+            background: rgba(255, 209, 102, 0.07);
+        }
+        .entity-link.person:hover {
+            background: rgba(255, 209, 102, 0.2);
+            box-shadow: 0 0 10px rgba(255, 209, 102, 0.35);
+        }
+        .entity-link.site {
+            color: #c4a5ff;
+            border-bottom-color: rgba(196, 165, 255, 0.55);
+            background: rgba(123, 97, 255, 0.1);
+        }
+        .entity-link.site:hover {
+            background: rgba(123, 97, 255, 0.25);
+            box-shadow: 0 0 10px rgba(123, 97, 255, 0.4);
+        }
+        /* ========== 实体介绍弹窗 ========== */
+        #entity-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 16, 0.72);
+            backdrop-filter: blur(3px);
+            z-index: 6000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #entity-card {
+            position: relative;
+            width: 430px;
+            max-width: 88vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            background: linear-gradient(160deg, #161630, #0c0c1e);
+            border: 1px solid rgba(76, 201, 240, 0.28);
+            border-radius: 14px;
+            padding: 24px 26px 20px;
+            box-shadow: 0 16px 60px rgba(0, 0, 0, 0.65);
+        }
+        #entity-close {
+            position: absolute; top: 10px; right: 12px;
+            background: none; border: none;
+            color: #5a6b7a; font-size: 22px; line-height: 1;
+            cursor: pointer; padding: 4px 6px;
+        }
+        #entity-close:hover { color: #4cc9f0; }
+        #entity-name {
+            font-size: 20px; font-weight: 600; color: #e8f4ff;
+            letter-spacing: 1px; margin-bottom: 8px;
+        }
+        #entity-type {
+            display: inline-block;
+            font-size: 11px; padding: 2px 10px; border-radius: 10px;
+            margin-bottom: 14px; letter-spacing: 1px;
+        }
+        #entity-type.person { color: #ffd166; background: rgba(255, 209, 102, 0.12); border: 1px solid rgba(255, 209, 102, 0.35); }
+        #entity-type.site { color: #c4a5ff; background: rgba(123, 97, 255, 0.14); border: 1px solid rgba(123, 97, 255, 0.4); }
+        #entity-intro {
+            font-size: 13.5px; line-height: 2; color: #a9bccb;
+            text-align: justify;
+        }
+        #entity-goto {
+            margin-top: 16px; width: 100%;
+            padding: 9px 0; border-radius: 8px;
+            border: 1px solid rgba(76, 201, 240, 0.45);
+            background: rgba(76, 201, 240, 0.1);
+            color: #4cc9f0; font-size: 13px; letter-spacing: 1px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        #entity-goto:hover { background: rgba(76, 201, 240, 0.22); box-shadow: 0 0 12px rgba(76, 201, 240, 0.3); }
+        #entity-card::-webkit-scrollbar { width: 4px; }
+        #entity-card::-webkit-scrollbar-thumb { background: rgba(76, 201, 240, 0.2); border-radius: 2px; }
         #info-content .placeholder-text {
             color: #4a5568;
             font-size: 13px;
@@ -497,6 +580,17 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ========== 实体介绍弹窗 ========== -->
+    <div id="entity-overlay">
+        <div id="entity-card">
+            <button id="entity-close">&times;</button>
+            <div id="entity-name"></div>
+            <span id="entity-type"></span>
+            <div id="entity-intro"></div>
+            <button id="entity-goto" style="display:none;"></button>
         </div>
     </div>
 
@@ -685,8 +779,118 @@
         }
     };
 
+    // ==================== 关联实体词典（人物 / 建筑遗迹） ====================
+    // t: person=人物 site=建筑遗迹；d: 简介；spot: 若为本站景点则可跳转 3D 场景
+    const entityData = {
+        // ---- 人物 ----
+        "五世达赖喇嘛": { t: "person", d: "17 世纪在清廷支持下重建并大规模扩建布达拉宫，确立了今日所见的宫堡格局。此后布达拉宫成为历代达赖喇嘛的冬宫与西藏政教合一的中心。" },
+        "达赖喇嘛": { t: "person", d: "藏传佛教格鲁派最重要的活佛转世系统之一，「达赖」意为「功德如大海一般的上师」。自五世达赖喇嘛起，历代达赖喇嘛均以布达拉宫为冬宫。" },
+        "松赞干布": { t: "person", d: "吐蕃第 33 任赞普，公元 7 世纪统一青藏高原各部，迎娶唐文成公主，并于红山之上始建布达拉宫，被视为藏文明的奠基者之一。" },
+        "秦始皇": { t: "person", d: "中国第一位皇帝，公元前 221 年统一六国，建立中央集权的秦帝国。兵马俑是其陵墓的陪葬坑，象征守护地下王国的精锐军队。" },
+        "玄奘": { t: "person", d: "唐代高僧，西行天竺取经十七年，携回佛经六百余部。归国后主持修建大雁塔以贮藏经卷佛像，并在大慈恩寺译经弘法。" },
+        "白居易": { t: "person", d: "唐代诗人，任杭州刺史时主持疏浚西湖、修筑湖堤蓄水灌田。后人为纪念他，将西湖白沙堤称为「白堤」。" },
+        "苏轼": { t: "person", d: "北宋文学家，两度任职杭州。他主持大规模疏浚西湖，以湖中葑泥筑成纵贯南北的长堤，即今日的苏堤，「苏堤春晓」由此而来。" },
+        "济公": { t: "person", d: "南宋禅僧道济，出家于灵隐寺。他以破衣癫僧、扶危济困的形象深入民间，被尊为「活佛」，是灵隐寺最具传奇色彩的人物。" },
+        "文徵明": { t: "person", d: "明代吴门画派领袖，曾参与拙政园的经营设计，并绘制《拙政园三十一景图》题诗记景，使园景与诗文画意相互成就。" },
+        "李冰": { t: "person", d: "战国时期秦国蜀郡太守，约公元前 256 年主持修建都江堰，以无坝引水之智驯服岷江，造就「天府之国」，被蜀人尊为「川主」。" },
+        "诸葛亮": { t: "person", d: "三国蜀汉丞相，辅佐刘备建立蜀汉政权，以「鞠躬尽瘁，死而后已」的一生成为忠臣与智者的象征。武侯祠即是纪念他的祠庙。" },
+        "刘备": { t: "person", d: "三国蜀汉开国皇帝，三顾茅庐请出诸葛亮，君臣相得传为佳话。其陵墓惠陵坐落于今武侯祠内，形成全国唯一的君臣合祀格局。" },
+        "杜甫": { t: "person", d: "唐代诗人，流寓成都期间写下《蜀相》：「丞相祠堂何处寻，锦官城外柏森森」，使武侯祠成为千古瞻仰诸葛亮精神的圣地。" },
+        "乐僔": { t: "person", d: "前秦僧人。公元 366 年行至敦煌鸣沙山东麓，忽见崖顶金光万道、如现千佛，遂在此开凿了莫高窟的第一个洞窟，开启千年营建史。" },
+        // ---- 建筑与遗迹 ----
+        "紫禁城": { t: "site", d: "故宫的旧称，取紫微垣「天帝居所」之意，寓意皇权的神圣禁地。明清两代二十四位皇帝在此居住理政。" },
+        "大慈恩寺": { t: "site", d: "唐代长安最著名的皇家寺院，玄奘西行归国后在此译经十一年。大雁塔即矗立于寺内西院，为保存佛经而建。" },
+        "西湖十景": { t: "site", d: "南宋以来逐渐形成的十处经典题名景观：苏堤春晓、断桥残雪、平湖秋月、雷峰夕照等，是中国景观题名文化的巅峰之作。" },
+        "断桥": { t: "site", d: "西湖白堤东端的标志性桥梁，冬雪初霁时桥面阳面雪融、阴面残雪，远望桥似断非断。因《白蛇传》中许仙与白娘子在此相会而闻名。" },
+        "苏堤": { t: "site", d: "苏轼疏浚西湖时用挖出的葑泥修筑的长堤，纵贯西湖南北约 2.8 公里，堤上六桥相连，「苏堤春晓」居西湖十景之首。" },
+        "白堤": { t: "site", d: "横亘西湖北侧的长堤，原名白沙堤，东起断桥、西接平湖秋月。后人为纪念曾任杭州刺史的白居易而改称白堤。" },
+        "飞来峰": { t: "site", d: "灵隐寺前的石灰岩奇峰，相传为印度僧人慧理认定「自天竺飞来」而得名。山体现存 340 余尊五代至宋元石窟造像，是江南最大的石窟造像群。" },
+        "大雄宝殿": { t: "site", d: "佛教寺院中供奉释迦牟尼佛的主殿。灵隐寺大雄宝殿高 33.6 米，为单层重檐三滴水建筑，是江南最宏伟的佛殿之一。" },
+        "颐和园": { t: "site", d: "北京西北郊的清代皇家园林，以昆明湖、万寿山为主体，融合江南园林意趣，与拙政园、避暑山庄、留园并称中国四大名园。" },
+        "承德避暑山庄": { t: "site", d: "位于河北承德的清代皇家离宫，历经康雍乾三朝 89 年建成，是中国现存面积最大的古典皇家园林。" },
+        "留园": { t: "site", d: "苏州古典园林的代表之一，以厅堂宏敞华丽、长廊迂回蜿蜒著称，与拙政园、颐和园、避暑山庄并称中国四大名园。" },
+        "北寺塔": { t: "site", d: "苏州报恩寺塔的俗称，古城北部制高点。拙政园巧妙地将园外此塔「借」入园中视野，是中国园林借景手法的教科书级案例。" },
+        "远香堂": { t: "site", d: "拙政园中部的主体建筑，四面厅形制、临池而立，堂名取自周敦颐《爱莲说》「香远益清」，夏日荷香满园时最得其意。" },
+        "鱼嘴分水堤": { t: "site", d: "都江堰渠首的锥形分水工程，形如鱼嘴伸入江心，将岷江分为内江（引水灌溉）与外江（泄洪排沙），实现枯水洪水自动调节的「四六分水」。" },
+        "飞沙堰": { t: "site", d: "都江堰的泄洪排沙枢纽。内江水流至此形成弯道环流，底层挟沙浊流被甩出外江，洪水超过堰顶时自动溢流，实现「二八分沙」。" },
+        "宝瓶口": { t: "site", d: "李冰率众凿穿玉垒山形成的狭窄引水口，上宽下窄形如瓶口，如同天然节制闸控制着进入成都平原的水量。" },
+        "安澜索桥": { t: "site", d: "横跨都江堰内江外江的古索桥，又名「夫妻桥」，以木板为面、竹缆为索，行走其上可俯瞰都江堰渠首全景。" },
+        "二王庙": { t: "site", d: "坐落于玉垒山麓的祠庙，纪念修建都江堰的李冰父子，庙内碑刻「深淘滩、低作堰」六字治水诀流传至今。" },
+        "三绝碑": { t: "site", d: "武侯祠内的唐代《蜀丞相诸葛武侯祠堂碑》，因裴度撰文、柳公绰书丹、鲁建刻字皆冠绝一时，世称「三绝碑」。" },
+        "锦里": { t: "site", d: "毗邻武侯祠的川西民俗古街，青瓦木楼间汇集三国文化与成都小吃，有「西蜀第一街」之称，是武侯祠的延伸游览区。" },
+        "惠陵": { t: "site", d: "蜀汉昭烈帝刘备的陵墓，位于今武侯祠西侧。武侯祠肇始于惠陵，形成全国唯一的君臣合祀祠庙格局，神道旁红墙竹影是著名景观。" },
+        "红宫": { t: "site", d: "布达拉宫中央的赭红色宫殿群，是历代达赖喇嘛的灵塔殿与佛殿所在，外墙以白玛草垒砌染红，为全宫的宗教核心。" },
+        "白宫": { t: "site", d: "布达拉宫两侧的白色宫殿群，历史上是达赖喇嘛的寝宫与噶厦政府的政务场所，与中央红宫共同构成政教合一的空间格局。" },
+        "红山": { t: "site", d: "拉萨市中心的红褐色山丘，藏语称「玛布日」。布达拉宫沿山体垒砌而上，宫堡与山势浑然一体，高差逾 110 米。" },
+        "九层楼": { t: "site", d: "莫高窟第 96 窟前的标志性楼阁，依山而建、飞檐九层，是莫高窟的门户地标。楼内供奉 35.5 米高的弥勒大佛。" },
+        "藏经洞": { t: "site", d: "莫高窟第 17 窟，1900 年由道士王圆箓偶然发现，出土公元 4 至 11 世纪的文书、绢画五万余件，被誉为「中古时代的百科全书」。" },
+        "鸣沙山": { t: "site", d: "敦煌城南的巨大沙山，沙粒在风中流动会发出轰鸣声响而得名。莫高窟就开凿在鸣沙山东麓的断崖之上。" },
+        "弥勒大佛": { t: "site", d: "莫高窟第 96 窟内高达 35.5 米的倚坐弥勒佛像，开凿于初唐，是中国最大的室内石胎泥塑佛像之一，九层楼即为遮蔽它而建。" },
+        "西湖": { t: "site", d: "杭州的城市名片，以「淡妆浓抹总相宜」的湖山格局闻名，苏堤、白堤纵横湖上，2011 年以文化景观列入《世界遗产名录》。", spot: "西湖" }
+    };
 
-    // ==================== 视图切换 ====================
+    // 按名字长度降序构建匹配正则，保证「五世达赖喇嘛」优先于「达赖喇嘛」命中
+    const ENTITY_RE = new RegExp(
+        Object.keys(entityData).sort(function(a, b) { return b.length - a.length; }).join('|'), 'g'
+    );
+
+    // 将文本中的实体名替换为高亮链接 span
+    function linkify(text) {
+        if (!text) return text;
+        return text.replace(ENTITY_RE, function(m) {
+            const e = entityData[m];
+            return '<span class="entity-link ' + e.t + '" data-e="' + m + '">' + m + '</span>';
+        });
+    }
+
+    // 实体弹窗
+    let entityGotoSpot = null;
+    function showEntity(name) {
+        const e = entityData[name];
+        if (!e) return;
+        document.getElementById('entity-name').textContent = name;
+        const typeEl = document.getElementById('entity-type');
+        typeEl.textContent = e.t === 'person' ? '相关人物' : '相关建筑 / 遗迹';
+        typeEl.className = e.t;
+        document.getElementById('entity-intro').textContent = e.d;
+        const gotoBtn = document.getElementById('entity-goto');
+        if (e.spot && (!currentSpotInfo || currentSpotInfo.name !== e.spot)) {
+            entityGotoSpot = e.spot;
+            gotoBtn.textContent = '进入「' + e.spot + '」3D 场景 →';
+            gotoBtn.style.display = 'block';
+        } else {
+            entityGotoSpot = null;
+            gotoBtn.style.display = 'none';
+        }
+        document.getElementById('entity-overlay').style.display = 'flex';
+    }
+    function hideEntity() {
+        document.getElementById('entity-overlay').style.display = 'none';
+    }
+
+    // 事件委托：点击任意实体链接弹出介绍
+    document.addEventListener('click', function(ev) {
+        const link = ev.target.closest && ev.target.closest('.entity-link');
+        if (link) {
+            ev.stopPropagation();
+            ev.preventDefault();
+            showEntity(link.getAttribute('data-e'));
+        }
+    });
+    document.getElementById('entity-close').addEventListener('click', hideEntity);
+    document.getElementById('entity-overlay').addEventListener('click', function(ev) {
+        if (ev.target === this) hideEntity();
+    });
+    document.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Escape') hideEntity();
+    });
+    document.getElementById('entity-goto').addEventListener('click', function() {
+        if (!entityGotoSpot) return;
+        const s = allSpots.find(function(x) { return x.name === entityGotoSpot; });
+        hideEntity();
+        if (s) enterScene(s);
+    });
+
     let currentView = 'map'; // 'map' | 'scene'
 
     function switchView(target) {
@@ -937,7 +1141,7 @@
         ].forEach(function(f) {
             if (f[1]) {
                 rows += '<div class="info-row"><div class="info-label">' + f[0] +
-                    '</div><div class="info-value">' + f[1] + '</div></div>';
+                    '</div><div class="info-value">' + linkify(f[1]) + '</div></div>';
             }
         });
         el.innerHTML =
@@ -1005,24 +1209,24 @@
         if (extraTag) html += extraTag;
         html +=
             '<div class="spot-divider"></div>' +
-            '<div class="spot-desc">' + spot.description + '</div>';
+            '<div class="spot-desc">' + linkify(spot.description) + '</div>';
         const d = spotDetails[spot.name];
         if (d) {
             html +=
                 '<div class="section-title">核心看点</div>' +
                 '<ul class="highlight-list">' +
-                d.highlights.map(function(h) { return '<li>' + h + '</li>'; }).join('') +
+                d.highlights.map(function(h) { return '<li>' + linkify(h) + '</li>'; }).join('') +
                 '</ul>';
             if (d.principle) {
                 html +=
                     '<div class="section-title">治水原理</div>' +
                     '<ul class="highlight-list">' +
-                    d.principle.map(function(p) { return '<li>' + p + '</li>'; }).join('') +
+                    d.principle.map(function(p) { return '<li>' + linkify(p) + '</li>'; }).join('') +
                     '</ul>';
             }
             html +=
                 '<div class="section-title">文化价值</div>' +
-                '<div class="culture-text">' + d.culture + '</div>';
+                '<div class="culture-text">' + linkify(d.culture) + '</div>';
         }
         if (spot.demo) {
             html +=
