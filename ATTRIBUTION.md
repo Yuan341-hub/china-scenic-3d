@@ -12,12 +12,15 @@
 | 大雁塔 | Giant Wild Goose Pagoda | Ákos (Yzahkin) | CC-BY-NC-SA 4.0 | https://sketchfab.com/3d-models/giant-wild-goose-pagoda-d92ab437e4cd4473a1f7f483693fefe9 |
 | 灵隐寺（替代：中式寺庙） | Low Poly Chinese Temple | annhatsady | CC-BY 4.0 | https://sketchfab.com/3d-models/low-poly-chinese-temple-6ccef9e800cb4c62b3c3c4d76f0639a2 |
 | 拙政园（替代：苏州园林扫描） | Suzhou Garden - Remaking the city | jcfu | CC-BY-NC-SA 4.0 | https://sketchfab.com/3d-models/suzhou-garden-remaking-the-city-54e687d9771f4113b462350a9e4aeda5 |
+| 布达拉宫 | 自生成模型（Tripo AI 多视图生成），无外部素材 | 本项目组 | 自有 | — |
+| 莫高窟 | 自生成模型（Tripo AI 多视图生成），无外部素材 | 本项目组 | 自有 | — |
 
 ## 说明
 
-- 西湖、都江堰、武侯祠三个景点暂无合适的开放模型，页面会显示占位模型，
+- 西湖一个景点暂无合适的开放模型，页面会显示占位模型，
   后续计划通过 AI 生成或自建模型补齐。
 - 灵隐寺、拙政园使用了风格相近的替代模型，并非景点本体建筑。
+- 兵马俑（军阵群像）、灵隐寺（新版）、布达拉宫、莫高窟的模型由本项目组
+  通过 Tripo AI 多视图生成，基于公开参考照片制作，无第三方素材。
 - CC-BY-NC-SA 协议的模型禁止商业用途；本项目仅用于学习竞赛展示。
-- 模型文件（`models/*.glb`）体积较大，已通过 `.gitignore` 排除在版本库之外，
-  如需复现请按上表链接自行下载。
+- 模型文件（`models/*.glb`）已随仓库发布，可直接通过 GitHub Pages 在线访问。
