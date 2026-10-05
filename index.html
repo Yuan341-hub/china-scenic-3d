@@ -452,6 +452,33 @@
             cursor: pointer; transition: all 0.2s;
         }
         #entity-goto:hover { background: rgba(76, 201, 240, 0.22); box-shadow: 0 0 12px rgba(76, 201, 240, 0.3); }
+        /* 多页词条翻页控件 */
+        #entity-pager {
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        #entity-pager .entity-page-btn {
+            flex: 1;
+            padding: 8px 0; border-radius: 8px;
+            border: 1px solid rgba(255, 209, 102, 0.4);
+            background: rgba(255, 209, 102, 0.08);
+            color: #ffd166; font-size: 12.5px; letter-spacing: 1px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        #entity-pager .entity-page-btn:hover:not(:disabled) {
+            background: rgba(255, 209, 102, 0.2);
+            box-shadow: 0 0 10px rgba(255, 209, 102, 0.3);
+        }
+        #entity-pager .entity-page-btn:disabled {
+            opacity: 0.3; cursor: default;
+        }
+        #entity-page-num {
+            color: #5a6b7a; font-size: 12px; letter-spacing: 1px;
+            flex-shrink: 0;
+        }
         #entity-card::-webkit-scrollbar { width: 4px; }
         #entity-card::-webkit-scrollbar-thumb { background: rgba(76, 201, 240, 0.2); border-radius: 2px; }
         #info-content .placeholder-text {
@@ -590,6 +617,11 @@
             <div id="entity-name"></div>
             <span id="entity-type"></span>
             <div id="entity-intro"></div>
+            <div id="entity-pager" style="display:none;">
+                <button id="entity-prev" class="entity-page-btn">&#8249; 上一页</button>
+                <span id="entity-page-num">1 / 2</span>
+                <button id="entity-next" class="entity-page-btn">下一页 &#8250;</button>
+            </div>
             <button id="entity-goto" style="display:none;"></button>
         </div>
     </div>
@@ -792,6 +824,10 @@
         "苏轼": { t: "person", d: "北宋文学家，两度任职杭州。他主持大规模疏浚西湖，以湖中葑泥筑成纵贯南北的长堤，即今日的苏堤，「苏堤春晓」由此而来。" },
         "济公": { t: "person", d: "南宋禅僧道济，出家于灵隐寺。他以破衣癫僧、扶危济困的形象深入民间，被尊为「活佛」，是灵隐寺最具传奇色彩的人物。" },
         "文徵明": { t: "person", d: "明代吴门画派领袖，曾参与拙政园的经营设计，并绘制《拙政园三十一景图》题诗记景，使园景与诗文画意相互成就。" },
+        "李冰父子": { t: "person", pages: [
+            { name: "李冰（父）", d: "战国时期秦国蜀郡太守，约公元前 256 年主持修建都江堰。他总结蜀地治水经验，以鱼嘴分水、飞沙堰排沙、宝瓶口控流构成无坝引水体系，驯服岷江水患，造就「天府之国」，被蜀人尊为「川主」。" },
+            { name: "李二郎（子）", d: "李冰之子，民间传说「二郎神」的原型之一。他随父入蜀，协助凿穿玉垒山、修筑堤堰，立下治水之功。后世在都江堰畔建二王庙，父子二人同享祭祀，「父子同功」传为千古美谈。" }
+        ] },
         "李冰": { t: "person", d: "战国时期秦国蜀郡太守，约公元前 256 年主持修建都江堰，以无坝引水之智驯服岷江，造就「天府之国」，被蜀人尊为「川主」。" },
         "诸葛亮": { t: "person", d: "三国蜀汉丞相，辅佐刘备建立蜀汉政权，以「鞠躬尽瘁，死而后已」的一生成为忠臣与智者的象征。武侯祠即是纪念他的祠庙。" },
         "刘备": { t: "person", d: "三国蜀汉开国皇帝，三顾茅庐请出诸葛亮，君臣相得传为佳话。其陵墓惠陵坐落于今武侯祠内，形成全国唯一的君臣合祀格局。" },
@@ -854,10 +890,14 @@
         Object.keys(entityData).sort(function(a, b) { return b.length - a.length; }).join('|'), 'g'
     );
 
-    // 将文本中的实体名替换为高亮链接 span
-    function linkify(text) {
+    // 将文本中的实体名替换为高亮链接 span；同一面板内同一词条只标第一次出现
+    let leftLinkSeen = new Set();
+    let rightLinkSeen = new Set();
+    function linkify(text, seen) {
         if (!text) return text;
         return text.replace(ENTITY_RE, function(m) {
+            if (seen.has(m)) return m;  // 重复出现，不再标亮
+            seen.add(m);
             const e = entityData[m];
             return '<span class="entity-link ' + e.t + '" data-e="' + m + '">' + m + '</span>';
         });
@@ -865,25 +905,56 @@
 
     // 实体弹窗
     let entityGotoSpot = null;
+    let entityPages = null;   // 多页词条（如「李冰父子」）
+    let entityPageIdx = 0;
     function showEntity(name) {
         const e = entityData[name];
         if (!e) return;
-        document.getElementById('entity-name').textContent = name;
         const typeEl = document.getElementById('entity-type');
         typeEl.textContent = e.t === 'person' ? '相关人物' : '相关建筑 / 遗迹';
         typeEl.className = e.t;
-        document.getElementById('entity-intro').textContent = e.d;
         const gotoBtn = document.getElementById('entity-goto');
-        if (e.spot && (!currentSpotInfo || currentSpotInfo.name !== e.spot)) {
-            entityGotoSpot = e.spot;
-            gotoBtn.textContent = '进入「' + e.spot + '」3D 场景 →';
-            gotoBtn.style.display = 'block';
-        } else {
-            entityGotoSpot = null;
+        const pager = document.getElementById('entity-pager');
+        if (e.pages) {
+            // 多页词条
+            entityPages = e.pages;
+            entityPageIdx = 0;
+            pager.style.display = 'flex';
             gotoBtn.style.display = 'none';
+            entityGotoSpot = null;
+            renderEntityPage();
+        } else {
+            entityPages = null;
+            pager.style.display = 'none';
+            document.getElementById('entity-name').textContent = name;
+            document.getElementById('entity-intro').textContent = e.d;
+            if (e.spot && (!currentSpotInfo || currentSpotInfo.name !== e.spot)) {
+                entityGotoSpot = e.spot;
+                gotoBtn.textContent = '进入「' + e.spot + '」3D 场景 →';
+                gotoBtn.style.display = 'block';
+            } else {
+                entityGotoSpot = null;
+                gotoBtn.style.display = 'none';
+            }
         }
         document.getElementById('entity-overlay').style.display = 'flex';
     }
+    function renderEntityPage() {
+        const p = entityPages[entityPageIdx];
+        document.getElementById('entity-name').textContent = p.name;
+        document.getElementById('entity-intro').textContent = p.d;
+        document.getElementById('entity-page-num').textContent = (entityPageIdx + 1) + ' / ' + entityPages.length;
+        document.getElementById('entity-prev').disabled = (entityPageIdx === 0);
+        document.getElementById('entity-next').disabled = (entityPageIdx === entityPages.length - 1);
+    }
+    document.getElementById('entity-prev').addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        if (entityPages && entityPageIdx > 0) { entityPageIdx--; renderEntityPage(); }
+    });
+    document.getElementById('entity-next').addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        if (entityPages && entityPageIdx < entityPages.length - 1) { entityPageIdx++; renderEntityPage(); }
+    });
     function hideEntity() {
         document.getElementById('entity-overlay').style.display = 'none';
     }
@@ -1154,6 +1225,7 @@
         const el = document.getElementById('left-info');
         el.style.display = 'block';
         const d = spotDetails[spot.name] || {};
+        leftLinkSeen = new Set();  // 左栏每次渲染重置，同一词条只标首次
         let rows = '';
         [
             ['类别', d.category], ['荣誉', d.level], ['年代', d.era],
@@ -1161,7 +1233,7 @@
         ].forEach(function(f) {
             if (f[1]) {
                 rows += '<div class="info-row"><div class="info-label">' + f[0] +
-                    '</div><div class="info-value">' + linkify(f[1]) + '</div></div>';
+                    '</div><div class="info-value">' + linkify(f[1], leftLinkSeen) + '</div></div>';
             }
         });
         el.innerHTML =
@@ -1223,30 +1295,31 @@
 
     // 渲染右侧信息面板
     function renderInfo(spot, extraTag) {
+        rightLinkSeen = new Set();  // 右栏每次渲染重置，同一词条只标首次
         let html =
             '<div class="spot-name">' + spot.name + '</div>' +
             '<div class="spot-province">' + spot.province + '</div>';
         if (extraTag) html += extraTag;
         html +=
             '<div class="spot-divider"></div>' +
-            '<div class="spot-desc">' + linkify(spot.description) + '</div>';
+            '<div class="spot-desc">' + linkify(spot.description, rightLinkSeen) + '</div>';
         const d = spotDetails[spot.name];
         if (d) {
             html +=
                 '<div class="section-title">核心看点</div>' +
                 '<ul class="highlight-list">' +
-                d.highlights.map(function(h) { return '<li>' + linkify(h) + '</li>'; }).join('') +
+                d.highlights.map(function(h) { return '<li>' + linkify(h, rightLinkSeen) + '</li>'; }).join('') +
                 '</ul>';
             if (d.principle) {
                 html +=
                     '<div class="section-title">治水原理</div>' +
                     '<ul class="highlight-list">' +
-                    d.principle.map(function(p) { return '<li>' + linkify(p) + '</li>'; }).join('') +
+                    d.principle.map(function(p) { return '<li>' + linkify(p, rightLinkSeen) + '</li>'; }).join('') +
                     '</ul>';
             }
             html +=
                 '<div class="section-title">文化价值</div>' +
-                '<div class="culture-text">' + linkify(d.culture) + '</div>';
+                '<div class="culture-text">' + linkify(d.culture, rightLinkSeen) + '</div>';
         }
         if (spot.demo) {
             html +=
