@@ -114,7 +114,7 @@
             padding: 24px;
             flex: 1;
         }
-        #back-btn, #model-toggle .toggle-btn, #bmy-variants .variant-btn {
+        #back-btn, #photos-btn, #model-toggle .toggle-btn, #bmy-variants .variant-btn {
             width: 100%;
             padding: 12px 16px;
             border-radius: 10px;
@@ -130,7 +130,7 @@
             gap: 8px;
             justify-content: center;
         }
-        #back-btn:hover, #model-toggle .toggle-btn:hover, #bmy-variants .variant-btn:hover {
+        #back-btn:hover, #photos-btn:hover, #model-toggle .toggle-btn:hover, #bmy-variants .variant-btn:hover {
             border-color: #4cc9f0;
             background: rgba(76, 201, 240, 0.1);
             box-shadow: 0 0 20px rgba(76, 201, 240, 0.15);
@@ -139,6 +139,80 @@
             margin-top: 12px;
             flex-direction: column;
             gap: 10px;
+        }
+        #photos-btn { margin-top: 12px; }
+        /* ========== 真实场景图集 ========== */
+        #photos-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 16, 0.85);
+            backdrop-filter: blur(4px);
+            z-index: 6500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #photos-panel {
+            position: relative;
+            width: 1000px;
+            max-width: 94vw;
+            max-height: 86vh;
+            overflow-y: auto;
+            background: linear-gradient(160deg, #161630, #0c0c1e);
+            border: 1px solid rgba(76, 201, 240, 0.28);
+            border-radius: 14px;
+            padding: 22px 24px;
+            box-shadow: 0 16px 60px rgba(0, 0, 0, 0.65);
+        }
+        #photos-panel::-webkit-scrollbar { width: 5px; }
+        #photos-panel::-webkit-scrollbar-thumb { background: rgba(76, 201, 240, 0.2); border-radius: 3px; }
+        #photos-title {
+            font-size: 18px; font-weight: 600; color: #e8f4ff;
+            letter-spacing: 1px; margin-bottom: 4px;
+        }
+        #photos-sub {
+            font-size: 12px; color: #5a6b7a; margin-bottom: 16px; letter-spacing: 1px;
+        }
+        #photos-close {
+            position: absolute; top: 12px; right: 14px;
+            background: none; border: none;
+            color: #5a6b7a; font-size: 24px; line-height: 1;
+            cursor: pointer; padding: 4px 6px; z-index: 2;
+        }
+        #photos-close:hover { color: #4cc9f0; }
+        #photos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+        }
+        #photos-grid .photo-cell {
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(76, 201, 240, 0.15);
+            cursor: zoom-in;
+            transition: transform 0.2s, box-shadow 0.2s;
+            background: #05050f;
+        }
+        #photos-grid .photo-cell:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(76, 201, 240, 0.25);
+        }
+        #photos-grid .photo-cell img {
+            width: 100%; height: 190px; object-fit: cover; display: block;
+        }
+        /* 图片放大查看 */
+        #photo-zoom {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(3, 3, 10, 0.92);
+            z-index: 7000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: zoom-out;
+        }
+        #photo-zoom img {
+            max-width: 92vw; max-height: 90vh;
+            border-radius: 8px;
+            box-shadow: 0 12px 60px rgba(0, 0, 0, 0.8);
         }
         #model-toggle .toggle-btn.active, #bmy-variants .variant-btn.active {
             border-color: #4cc9f0;
@@ -430,12 +504,13 @@
         #entity-close:hover { color: #4cc9f0; }
         #entity-img {
             width: 100%;
-            height: 170px;
-            object-fit: cover;
+            height: auto;
+            max-height: 260px;
+            object-fit: contain;
             border-radius: 10px;
             margin-bottom: 14px;
             border: 1px solid rgba(76, 201, 240, 0.18);
-            background: #0a0a1a;
+            background: #05050f;
         }
         #entity-name {
             font-size: 20px; font-weight: 600; color: #e8f4ff;
@@ -580,6 +655,7 @@
             </div>
             <div class="panel-body">
                 <button id="back-btn">&#8592; 返回地图</button>
+                <button id="photos-btn">&#128247; 真实场景</button>
                 <div id="bmy-variants" style="display:none;">
                     <button class="variant-btn" id="btn-bmy-army">兵马俑军阵群像</button>
                     <button class="variant-btn" id="btn-bmy-kneeling">兵马俑跪射俑</button>
@@ -618,6 +694,17 @@
             </div>
         </div>
     </div>
+
+    <!-- ========== 真实场景图集弹窗 ========== -->
+    <div id="photos-overlay">
+        <div id="photos-panel">
+            <button id="photos-close">&times;</button>
+            <div id="photos-title"></div>
+            <div id="photos-sub">实景拍摄 · 多角度 · 点击图片可放大（来源：维基共享资源）</div>
+            <div id="photos-grid"></div>
+        </div>
+    </div>
+    <div id="photo-zoom"><img id="photo-zoom-img" alt=""></div>
 
     <!-- ========== 实体介绍弹窗 ========== -->
     <div id="entity-overlay">
@@ -1079,6 +1166,56 @@
         const s = allSpots.find(function(x) { return x.name === entityGotoSpot; });
         hideEntity();
         if (s) enterScene(s);
+    });
+
+    // ==================== 真实场景图集 ====================
+    const SPOT_PHOTOS = {
+        "故宫": { dir: "gugong", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "长城": { dir: "changcheng", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "兵马俑": { dir: "bingmayong", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "大雁塔": { dir: "dayanta", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "西湖": { dir: "xihu", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "灵隐寺": { dir: "lingyinsi", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "拙政园": { dir: "zhuozhengyuan", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "都江堰": { dir: "dujiangyan", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "武侯祠": { dir: "wuhouci", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "布达拉宫": { dir: "budalagong", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] },
+        "莫高窟": { dir: "mogaoku", files: ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] }
+    };
+    function openSpotPhotos(spot) {
+        const info = SPOT_PHOTOS[spot.name];
+        if (!info || !info.files.length) return;
+        document.getElementById('photos-title').textContent = spot.name + ' · 真实场景';
+        const grid = document.getElementById('photos-grid');
+        grid.innerHTML = info.files.map(function(f) {
+            const src = 'images/spots/' + info.dir + '/' + f;
+            return '<div class="photo-cell" data-src="' + src + '"><img loading="lazy" src="' + src + '" alt="' + spot.name + '实景"></div>';
+        }).join('');
+        document.getElementById('photos-overlay').style.display = 'flex';
+    }
+    document.getElementById('photos-btn').addEventListener('click', function() {
+        if (currentSpotInfo) openSpotPhotos(currentSpotInfo);
+    });
+    document.getElementById('photos-close').addEventListener('click', function() {
+        document.getElementById('photos-overlay').style.display = 'none';
+    });
+    document.getElementById('photos-overlay').addEventListener('click', function(ev) {
+        if (ev.target === this) this.style.display = 'none';
+    });
+    document.getElementById('photos-grid').addEventListener('click', function(ev) {
+        const cell = ev.target.closest('.photo-cell');
+        if (!cell) return;
+        document.getElementById('photo-zoom-img').src = cell.getAttribute('data-src');
+        document.getElementById('photo-zoom').style.display = 'flex';
+    });
+    document.getElementById('photo-zoom').addEventListener('click', function() {
+        this.style.display = 'none';
+    });
+    document.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Escape') {
+            document.getElementById('photo-zoom').style.display = 'none';
+            document.getElementById('photos-overlay').style.display = 'none';
+        }
     });
 
     let currentView = 'map'; // 'map' | 'scene'
