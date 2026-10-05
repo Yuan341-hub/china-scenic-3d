@@ -428,6 +428,15 @@
             cursor: pointer; padding: 4px 6px;
         }
         #entity-close:hover { color: #4cc9f0; }
+        #entity-img {
+            width: 100%;
+            height: 170px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            border: 1px solid rgba(76, 201, 240, 0.18);
+            background: #0a0a1a;
+        }
         #entity-name {
             font-size: 20px; font-weight: 600; color: #e8f4ff;
             letter-spacing: 1px; margin-bottom: 8px;
@@ -614,6 +623,7 @@
     <div id="entity-overlay">
         <div id="entity-card">
             <button id="entity-close">&times;</button>
+            <img id="entity-img" alt="" style="display:none;">
             <div id="entity-name"></div>
             <span id="entity-type"></span>
             <div id="entity-intro"></div>
@@ -834,7 +844,6 @@
             { name: "李冰（父）", d: "战国时期秦国蜀郡太守，约公元前 256 年主持修建都江堰。他总结蜀地治水经验，以鱼嘴分水、飞沙堰排沙、宝瓶口控流构成无坝引水体系，驯服岷江水患，造就「天府之国」，被蜀人尊为「川主」。" },
             { name: "李二郎（子）", d: "李冰之子，民间传说「二郎神」的原型之一。他随父入蜀，协助凿穿玉垒山、修筑堤堰，立下治水之功。后世在都江堰畔建二王庙，父子二人同享祭祀，「父子同功」传为千古美谈。" }
         ] },
-        "李冰": { t: "person", d: "战国时期秦国蜀郡太守，约公元前 256 年主持修建都江堰，以无坝引水之智驯服岷江，造就「天府之国」，被蜀人尊为「川主」。" },
         "诸葛亮": { t: "person", pages: [
             { name: "诸葛亮", d: "三国蜀汉丞相，辅佐刘备建立蜀汉政权，六出祁山、北伐中原，以「鞠躬尽瘁，死而后已」的一生成为忠臣与智者的象征。武侯祠即是纪念他的祠庙。" },
             { name: "刘备", d: "三国蜀汉开国皇帝，三顾茅庐请出诸葛亮，君臣相得传为佳话。其陵墓惠陵坐落于今武侯祠内，形成全国唯一的君臣合祀格局。" }
@@ -915,6 +924,82 @@
         });
     }
 
+    // 实体配图（images/entities/ 目录，来源：维基共享资源）
+    const ENTITY_IMGS = {
+        "秦始皇": "qinshihuang.jpg",
+        "五世达赖喇嘛": "dalai5.jpg",
+        "达赖喇嘛": "dalai.jpg",
+        "松赞干布": "songtsen.jpg",
+        "玄奘": "xuanzang.jpg",
+        "济公": "jigong.jpg",
+        "文徵明": "wenzhengming.jpg",
+        "杜甫": "dufu.jpg",
+        "乐僔": "yuezun.jpg",
+        "李冰（父）": "libing.jpg",
+        "李二郎（子）": "lierlang.jpg",
+        "白居易": "baijuyi.jpg",
+        "苏轼": "sushi.jpg",
+        "诸葛亮": "zhugeliang.jpg",
+        "刘备": "liubei.jpg",
+        "紫禁城": "zijincheng.jpg",
+        "大慈恩寺": "dacien.jpg",
+        "西湖十景": "xihushijing.jpg",
+        "断桥": "duanqiao.jpg",
+        "苏堤": "sudi.jpg",
+        "白堤": "baidi.jpg",
+        "飞来峰": "feilaifeng.jpg",
+        "大雄宝殿": "daxiongbaodian.jpg",
+        "颐和园": "yiheyuan.jpg",
+        "承德避暑山庄": "bishushanzhuang.jpg",
+        "留园": "liuyuan.jpg",
+        "北寺塔": "beisita.jpg",
+        "远香堂": "yuanxiangtang.jpg",
+        "鱼嘴分水堤": "yuzui.jpg",
+        "飞沙堰": "feishayan.jpg",
+        "宝瓶口": "baopingkou.jpg",
+        "安澜索桥": "anlan.jpg",
+        "二王庙": "erwangmiao.jpg",
+        "三绝碑": "sanjuebei.jpg",
+        "锦里": "jinli.jpg",
+        "惠陵": "huiling.jpg",
+        "红宫": "honggong.jpg",
+        "白宫": "baigong.jpg",
+        "红山": "hongshan.jpg",
+        "九层楼": "jiucenglou.jpg",
+        "藏经洞": "cangjingdong.jpg",
+        "鸣沙山": "mingshashan.jpg",
+        "弥勒大佛": "mile.jpg",
+        "西湖": "xihu.jpg",
+        "八达岭": "badaling.jpg",
+        "敌楼": "dilou.jpg",
+        "烽火台": "fenghuotai.jpg",
+        "金山岭": "jinshanling.jpg",
+        "太和殿": "taihedian.jpg",
+        "珍宝馆": "zhenbaoguan.jpg",
+        "钟表楼": "zhongbiaolou.jpg",
+        "角楼": "jiaolou.jpg",
+        "一号坑": "yihaokeng.jpg",
+        "铜车马": "tongchema.jpg",
+        "跪射俑": "guisheyong.jpg",
+        "将军俑": "jiangjunyong.jpg",
+        "秦始皇陵遗址公园": "qinlingpark.jpg",
+        "丽山园": "lishanyuan.jpg",
+        "冷泉溪": "lengquanxi.jpg",
+        "理公塔": "ligongta.jpg"
+    };
+    function setEntityImg(key) {
+        const imgEl = document.getElementById('entity-img');
+        const file = ENTITY_IMGS[key];
+        if (file) {
+            imgEl.src = 'images/entities/' + file;
+            imgEl.alt = key;
+            imgEl.style.display = 'block';
+        } else {
+            imgEl.style.display = 'none';
+            imgEl.removeAttribute('src');
+        }
+    }
+
     // 实体弹窗
     let entityGotoSpot = null;
     let entityPages = null;   // 多页词条（如「李冰父子」）
@@ -940,6 +1025,7 @@
             pager.style.display = 'none';
             document.getElementById('entity-name').textContent = name;
             document.getElementById('entity-intro').textContent = e.d;
+            setEntityImg(name);
             if (e.spot && (!currentSpotInfo || currentSpotInfo.name !== e.spot)) {
                 entityGotoSpot = e.spot;
                 gotoBtn.textContent = '进入「' + e.spot + '」3D 场景 →';
@@ -955,6 +1041,7 @@
         const p = entityPages[entityPageIdx];
         document.getElementById('entity-name').textContent = p.name;
         document.getElementById('entity-intro').textContent = p.d;
+        setEntityImg(p.name);
         document.getElementById('entity-page-num').textContent = (entityPageIdx + 1) + ' / ' + entityPages.length;
         document.getElementById('entity-prev').disabled = (entityPageIdx === 0);
         document.getElementById('entity-next').disabled = (entityPageIdx === entityPages.length - 1);

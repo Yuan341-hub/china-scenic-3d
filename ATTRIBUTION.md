@@ -24,3 +24,5 @@
   通过 Tripo AI 多视图生成，基于公开参考照片制作，无第三方素材。
 - CC-BY-NC-SA 协议的模型禁止商业用途；本项目仅用于学习竞赛展示。
 - 模型文件（`models/*.glb`）已随仓库发布，可直接通过 GitHub Pages 在线访问。
+- 词条弹窗配图（`images/entities/*.jpg`）均来自维基共享资源（Wikimedia Commons），
+  为公有领域或 CC 协议授权图片，仅作学习展示用途。
