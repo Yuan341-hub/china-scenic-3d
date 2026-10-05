@@ -114,7 +114,7 @@
             padding: 24px;
             flex: 1;
         }
-        #back-btn, #model-toggle .toggle-btn {
+        #back-btn, #model-toggle .toggle-btn, #bmy-variants .variant-btn {
             width: 100%;
             padding: 12px 16px;
             border-radius: 10px;
@@ -130,17 +130,17 @@
             gap: 8px;
             justify-content: center;
         }
-        #back-btn:hover, #model-toggle .toggle-btn:hover {
+        #back-btn:hover, #model-toggle .toggle-btn:hover, #bmy-variants .variant-btn:hover {
             border-color: #4cc9f0;
             background: rgba(76, 201, 240, 0.1);
             box-shadow: 0 0 20px rgba(76, 201, 240, 0.15);
         }
-        #model-toggle {
+        #model-toggle, #bmy-variants {
             margin-top: 12px;
             flex-direction: column;
             gap: 10px;
         }
-        #model-toggle .toggle-btn.active {
+        #model-toggle .toggle-btn.active, #bmy-variants .variant-btn.active {
             border-color: #4cc9f0;
             background: rgba(76, 201, 240, 0.18);
             color: #ffffff;
@@ -461,6 +461,10 @@
             </div>
             <div class="panel-body">
                 <button id="back-btn">&#8592; 返回地图</button>
+                <div id="bmy-variants" style="display:none;">
+                    <button class="variant-btn" id="btn-bmy-army">兵马俑军阵群像</button>
+                    <button class="variant-btn" id="btn-bmy-kneeling">兵马俑跪射俑</button>
+                </div>
                 <div id="model-toggle" style="display:none;">
                     <button class="toggle-btn active" id="btn-schematic">原理模型</button>
                     <button class="toggle-btn" id="btn-realistic">真实模型</button>
@@ -935,6 +939,10 @@
             toggleEl.style.display = 'none';
         }
 
+        // 兵马俑专属：军阵群像 / 跪射俑模型切换按钮
+        document.getElementById('bmy-variants').style.display =
+            (spot.name === '兵马俑') ? 'flex' : 'none';
+
         // 更新右侧信息
         renderInfo(spot, null);
         loadModel(spot);
@@ -1005,6 +1013,23 @@
         document.getElementById('left-info').style.display = 'none';
         document.getElementById('info-content').innerHTML =
             '<div class="placeholder-text"><span class="icon">&#9670;</span>从地图选择一个景点<br>开始探索之旅</div>';
+    });
+
+    // 兵马俑专属：军阵群像 / 跪射俑模型切换
+    function loadBmyVariant(modelPath, btnId) {
+        if (!currentSpotInfo || currentSpotInfo.name !== '兵马俑') return;
+        const base = allSpots.find(function(s) { return s.name === '兵马俑'; });
+        if (!base) return;
+        loadModel(Object.assign({}, base, { model: modelPath }));
+        document.querySelectorAll('#bmy-variants .variant-btn').forEach(function(b) {
+            b.classList.toggle('active', b.id === btnId);
+        });
+    }
+    document.getElementById('btn-bmy-army').addEventListener('click', function() {
+        loadBmyVariant('models/bingmayong-army.glb', 'btn-bmy-army');
+    });
+    document.getElementById('btn-bmy-kneeling').addEventListener('click', function() {
+        loadBmyVariant('models/bingmayong-kneeling.glb', 'btn-bmy-kneeling');
     });
 
     // 射线拾取（带拖拽位移判断，避免旋转后误触发）
